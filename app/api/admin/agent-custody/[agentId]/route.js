@@ -1,6 +1,7 @@
 // D:\gold-centro\app\api\admin\agent-custody\[agentId]\route.js
 import { prisma } from '../../../../../lib/prisma';
 import { NextResponse } from 'next/server';
+export const dynamic = 'force-dynamic';
 
 export async function GET(req, { params }) {
   try {
