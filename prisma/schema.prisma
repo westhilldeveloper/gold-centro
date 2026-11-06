@@ -1,0 +1,363 @@
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String   @id @default(cuid())
+  phone         String   @unique
+  name          String
+  role          String   @default("CUSTOMER")
+  password      String?
+  createdAt     DateTime @default(now())
+  aadhaarNumber String?
+  aadhaarBack   String?
+  aadhaarFront  String?
+  panNumber     String?
+  panFront      String?
+  panBack       String?
+  profilePhoto  String?
+  branchId      String?                    
+  branch        Branch?  @relation("BranchAgents", fields: [branchId], references: [id])
+  agentDeposits AgentDeposit[] @relation("AgentDeposits")
+  assigned      Order[]  @relation("AgentOrders")
+  orders        Order[]  @relation("CustomerOrders")
+  agentCashTransactions AgentCashTransaction[] @relation("AgentCash")
+  agentCashRequests     AgentCashRequest[]    @relation("AgentCashRequests")
+}
+
+model GoldRate {
+  id                    String   @id @default(cuid())
+  rates                 Json?    
+  serviceChargePercent  Float    @default(0)
+  effectiveFrom         DateTime @default(now())
+  expiryTime            DateTime
+  updatedBy             String
+  createdAt             DateTime @default(now())
+}
+
+model Branch {
+  id            String    @id @default(cuid())
+  name          String
+  code          String    @unique
+  address       String?
+  city          String?
+  state         String?
+  pincode       String?
+  phone         String?
+  isHeadOffice  Boolean   @default(false)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  agents           User[]                  @relation("BranchAgents")
+  staff            BranchStaff[]
+  stockFrom        StockMovement[]         @relation("StockFrom")
+  stockTo          StockMovement[]         @relation("StockTo")
+  orders           Order[]
+  agentDeposits    AgentDeposit[]
+  expenses         BranchExpense[]
+  fundRequests     FundRequest[]
+  agentCashRequests     AgentCashRequest[] 
+  meltingBatches  MeltingBatch[]
+  goldBars        GoldBar[]
+
+  cashTransactions    BranchCashTransaction[] @relation("BranchCashLedger")
+  cashTransferCounter BranchCashTransaction[] @relation("BranchCashCounter")
+}
+
+model BranchStaff {
+  id            String   @id @default(cuid())
+  phone         String   @unique
+  name          String
+  password      String?
+  role          String   @default("STAFF")  // MANAGER | CASHIER | VAULT_KEEPER | TESTER | STAFF
+  branchId      String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  ordersCreated Order[]  @relation("StaffOrders")
+  branch        Branch   @relation(fields: [branchId], references: [id])
+}
+
+model BranchExpense {
+  id          String   @id @default(cuid())
+  branchId    String
+  category    String   // OFFICE | TRAVEL | MAINTENANCE | OTHER
+  amount      Float
+  description String?
+  receiptUrl  String?
+  createdBy   String
+  createdAt   DateTime @default(now())
+
+  branch      Branch   @relation(fields: [branchId], references: [id])
+}
+
+model BranchCashTransaction {
+  id          String   @id @default(cuid())
+  branchId    String
+  counterBranchId String?
+  type        String   // CREDIT or DEBIT
+  amount      Float
+  purpose     String   // "Initial deposit", "Gold purchase", "Transfer to HO", "Petty cash"
+  description String?
+  reference   String?  // orderId, movementId, etc.
+  createdBy   String   // userId
+  createdAt   DateTime @default(now())
+
+  branch      Branch   @relation("BranchCashLedger", fields: [branchId], references: [id])
+  counterBranch Branch? @relation("BranchCashCounter", fields: [counterBranchId], references: [id])
+
+  @@index([branchId, type])
+}
+
+model StockMovement {
+  id            String    @id @default(cuid())
+  fromBranchId  String?
+  toBranchId    String?
+  weight        Float
+  purity        String
+  description   String?
+  status        String    @default("PENDING") // PENDING, IN_TRANSIT, RECEIVED, CANCELLED
+  receivedBy    String?
+  receivedAt    DateTime?
+  reference     String?
+  createdBy     String
+  itemIds       String[]  @default([])   
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  handedOverByName   String?   // who physically released the gold at source
+  handedOverByPhone  String?
+  carrierType        String?   // AGENT | STAFF | COURIER | OTHER
+  carrierId          String?   // User.id if carrier is an agent
+  carrierName        String?
+  carrierPhone       String?
+  receivedByName     String?
+
+  handoverSheetUrl          String?
+  handoverSheetUploadedAt   DateTime?
+  handoverSheetUploadedBy   String?
+  handoverSheetUploadedByName String?
+
+  fromBranch    Branch?   @relation("StockFrom", fields: [fromBranchId], references: [id])
+  toBranch      Branch?   @relation("StockTo", fields: [toBranchId], references: [id])
+}
+
+model Order {
+  id             String    @id @default(cuid())
+  customerId     String
+  agentId        String?
+  weight         Float
+  purity         String
+  estimatedTotal Float
+  finalOffer     Float?
+  agentOffer     Float?    
+  adminOffer     Float?    
+  finalPrice     Float?    
+  comment        String?
+  status         String    @default("DRAFT")
+  customerLat    Float?
+  customerLng    Float?
+  agentLat       Float?
+  agentLng       Float?
+  qrSecret       String?
+  paymentMode    String?
+  items          OrderItem[] 
+  qrGeneratedAt  DateTime?
+  adminRateUsed  Float?
+  receiptAcknowledgedAt     DateTime?   
+  receiptAcknowledgedBy     String? 
+  serviceChargePercent Float?   
+  serviceChargeAmount  Float?
+
+  isPledged                  Boolean   @default(false)
+  pledgeBankName             String?
+  pledgeLoanAccountNo        String?
+  pledgeOutstandingAmount    Float?
+  pledgeDeclarationUrl       String?   // Cloudinary URL of the signed PDF
+  pledgeDeclarationUploadedAt DateTime?
+  pledgeDeclarationUploadedBy String?    
+
+  signedDocumentUrl         String?     
+  signedDocumentUploadedAt  DateTime?
+  signedDocumentUploadedBy  String?
+
+  orderType      String    @default("AGENT_PURCHASE")
+  staffId        String?
+  staff          BranchStaff? @relation("StaffOrders", fields: [staffId], references: [id])
+  purchaseAgreementUrl String?
+  purchaseAgreementUploadedAt DateTime?
+
+  branchId      String?                    // ← NEW: which branch handled this purchase
+  branch        Branch?  @relation(fields: [branchId], references: [id])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  agent          User?     @relation("AgentOrders", fields: [agentId], references: [id])
+  customer       User      @relation("CustomerOrders", fields: [customerId], references: [id])
+  depositedToBranch Boolean   @default(false)   // ← NEW
+  depositedAt       DateTime? 
+}
+
+model AgentDeposit {
+  id           String   @id @default(cuid())
+  agentId      String
+  branchId     String
+  weight       Float
+  purity       String
+  orderIds     String[]                          // IDs of orders in this deposit
+  notes        String?
+  receivedBy   String                            // branch manager userId
+  depositedAt  DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  agent        User     @relation("AgentDeposits", fields: [agentId], references: [id])
+  branch       Branch   @relation(fields: [branchId], references: [id])
+}
+
+model AgentCashTransaction {
+  id          String   @id @default(cuid())
+  agentId     String
+  type        String   // CREDIT | DEBIT
+  amount      Float
+  purpose     String   // "Branch transfer", "Gold purchase", "Expense", "Petty cash"
+  description String?
+  reference   String?  // orderId, expenseId, etc.
+  createdBy   String   // userId who created it (branch staff or admin)
+  createdAt   DateTime @default(now())
+
+  agent       User     @relation("AgentCash", fields: [agentId], references: [id])
+  requestId     String?
+  @@index([agentId])
+}
+
+model AgentCashRequest {
+  id           String    @id @default(cuid())
+  agentId      String
+  branchId     String
+  amount       Float
+  purpose      String
+  description  String?
+  status       String    @default("PENDING")  // PENDING | APPROVED | REJECTED
+  requestedBy  String    // userId (agent)
+  reviewedBy   String?   // BranchStaff id
+  reviewNote   String?
+  reviewedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  agent        User      @relation("AgentCashRequests", fields: [agentId], references: [id])
+  branch       Branch    @relation(fields: [branchId], references: [id])
+
+  @@index([agentId])
+  @@index([branchId])
+}
+
+model OTP {
+  id        String   @id @default(cuid())
+  userId    String
+  code      String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model OrderItem {
+  id              String   @id @default(cuid())
+  orderId         String
+  name            String
+  count           Int      @default(1)
+  purity          String   @default("24K")
+  imageUrls       String[] @default([])
+  grossWeight     Float
+  stoneWeight     Float    @default(0)
+  dustWeight      Float    @default(0)
+  netWeight       Float
+  ratePerGram     Float?   @default(0)   
+  itemPrice       Float?   @default(0)   
+  currentBranchId String?
+  originBranchId  String?
+  status          String   @default("ACTIVE")
+  meltingBatchId  String?
+  meltedIntoBarId String?
+  
+  preEstimationGrossWeight Float?
+  preEstimationNetWeight   Float?
+  preEstimationPurity      String?
+
+  createdAt       DateTime @default(now())
+
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([currentBranchId])
+  @@index([status])
+}
+
+model MeltingBatch {
+  id                String    @id @default(cuid())
+  batchCode         String    @unique
+  branchId          String?
+  fromBranchIds     String[]  @default([])
+  itemIds           String[]  @default([])
+  purity            String
+  totalInputWeight  Float     @default(0)
+  totalInputGross   Float     @default(0)
+  totalBarWeight    Float     @default(0)
+  status            String    @default("PENDING")  // PENDING | IN_PROGRESS | COMPLETED | CANCELLED
+  sentBy            String
+  sentAt            DateTime  @default(now())
+  handledBy         String?
+  completedAt       DateTime?
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  branch            Branch?    @relation(fields: [branchId], references: [id])
+  bars              GoldBar[]
+
+ 
+  @@index([status])
+}
+
+// NEW: GoldBar
+model GoldBar {
+  id              String    @id @default(cuid())
+  barCode         String    @unique
+  batchId         String?
+  imageUrl        String?
+  purity          String
+  weight          Float
+  handledBy       String?
+  validatedBy     String? 
+  currentBranchId String?
+  notes           String?
+  createdAt       DateTime  @default(now())
+
+  batch           MeltingBatch? @relation(fields: [batchId], references: [id])
+  currentBranch   Branch?       @relation(fields: [currentBranchId], references: [id])
+
+  @@index([batchId])
+  @@index([currentBranchId])
+}
+
+model FundRequest {
+  id           String    @id @default(cuid())
+  branchId     String
+  amount       Float
+  purpose      String
+  description  String?
+  status       String    @default("PENDING")  // PENDING, APPROVED, REJECTED
+  requestedBy  String    // BranchStaff id
+  reviewedBy   String?   // Admin user id
+  reviewNote   String?
+  reviewedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  branch       Branch    @relation(fields: [branchId], references: [id])
+}
