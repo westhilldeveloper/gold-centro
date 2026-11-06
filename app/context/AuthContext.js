@@ -60,6 +60,8 @@ export const AuthProvider = ({ children }) => {
       setUser(userWithType);
       localStorage.setItem('goldUser', JSON.stringify(userWithType));
 
+      if (data.token) localStorage.setItem('token', data.token);
+
       if (data.user.role === 'ADMIN') router.push('/admin');
       else if (data.user.role === 'AGENT') router.push('/agent');
       else router.push('/');
@@ -88,6 +90,9 @@ export const AuthProvider = ({ children }) => {
 
       setUser(userWithType);
       localStorage.setItem('goldUser', JSON.stringify(userWithType));
+
+      if (data.token) localStorage.setItem('token', data.token); 
+      
       router.push('/branch');
       return { success: true };
     } catch (err) {
