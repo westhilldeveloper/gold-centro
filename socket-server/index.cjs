@@ -1,16 +1,12 @@
-// socket-server.cjs
 require('dotenv').config();
 
 const { createServer } = require('http');
 const { Server } = require('socket.io');
-
-// Your existing helpers — reuse them as-is
-const { verifyToken } = require('./auth.js');
+const { verifyToken } = require('./auth.js'); // Ensure this path is correct
 
 const port = process.env.PORT || 3000;
 const httpServer = createServer();
 
-// Same parseCookies helper from your server.cjs
 function parseCookies(header = '') {
   const out = {};
   for (const part of header.split(';')) {
@@ -26,48 +22,39 @@ function unauthorized(msg = 'UNAUTHORIZED') {
   return Object.assign(new Error(msg), { data: { code: 'UNAUTHORIZED' } });
 }
 
-const allowedOrigins = [
-  'http://localhost:3000', 
-  process.env.FRONTEND_URL  // e.g., https://your-app.vercel.app
-].filter(Boolean); 
-
 const io = new Server(httpServer, {
   path: '/socket.io',
   cors: {
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, or same-origin)
-      if (!origin) return callback(null, true);
-      
-      // Check if the origin is in our allowed list
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.log(`Blocked by CORS: ${origin}`);
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
-    credentials: true, // Required for cookies/JWT
+    // 1. Simplest CORS setup. Matches exactly what is in Render env vars.
+    origin: process.env.FRONTEND_URL, 
+    methods: ['GET', 'POST'],
+    credentials: true, 
   },
   pingInterval: 25000,
   pingTimeout: 20000,
 });
 
-// Same auth middleware as your server.cjs
 io.use((socket, next) => {
   try {
-    const cookies = parseCookies(socket.handshake.headers.cookie);
-    const token = cookies['token'];
+    // 2. Check handshake auth first (cross-origin safe), then fallback to cookie
+    let token = socket.handshake.auth?.token;
+    
+    if (!token) {
+      const cookies = parseCookies(socket.handshake.headers.cookie);
+      token = cookies['token'];
+    }
+
     if (!token) return next(unauthorized('NO_TOKEN'));
 
     const user = verifyToken(token);
     socket.data.user = { id: user.id, role: user.role };
     next();
-  } catch {
+  } catch (err) {
+    console.error('Socket Auth Error:', err.message);
     next(unauthorized('INVALID_TOKEN'));
   }
 });
 
-// Same room assignment as your server.cjs
 io.on('connection', (socket) => {
   const { id, role } = socket.data.user;
   socket.join(`user:${id}`);
@@ -78,6 +65,19 @@ io.on('connection', (socket) => {
   socket.on('disconnect', (reason) => {
     console.log(`[socket] disconnect ${socket.id} reason=${reason}`);
   });
+});
+
+// 3. 🔥 CRITICAL: Handle HTTP requests so Render's proxy allows WebSockets
+httpServer.on('request', (req, res) => {
+  // If Render pings the root URL, reply with a 200 OK
+  if (req.url === '/' || req.url === '/healthz') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Socket.IO server is running');
+    return;
+  }
+  // Ignore other HTTP requests
+  res.writeHead(404);
+  res.end();
 });
 
 httpServer.listen(port, '0.0.0.0', () => {
