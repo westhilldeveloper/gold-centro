@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { QRCodeCanvas as QRCode } from 'qrcode.react';
+import { QRCodeSVG as QRCode } from 'qrcode.react';
 import { motion } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import { getSocket } from '../../lib/socket';

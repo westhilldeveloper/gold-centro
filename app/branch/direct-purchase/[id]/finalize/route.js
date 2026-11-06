@@ -1,5 +1,5 @@
 // D:\gold-centro\app\api\branch\direct-purchase\[id]\finalize\route.js
-import { prisma } from '../../../../../../lib/prisma';
+import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 
 export async function PUT(req, { params }) {

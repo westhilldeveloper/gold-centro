@@ -1,4 +1,4 @@
-import { prisma } from '../../../../../lib/prisma';
+import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -144,13 +144,19 @@ export async function POST(req, { params }) {
 
     // Notify via socket (non-blocking) — see note below
     try {
-      const { emitToRoom } = await import('../../../../../lib/socket-server');
-      // Admin room — refresh order list
-      emitToRoom?.('admin', 'order-updated', { id: order.id, isPledged: order.isPledged });
-      // Agent room — show the new pledge block in the agent's UI
-      if (order.agentId) {
-        emitToRoom?.(`agent:${order.agentId}`, 'order-updated', order);
-      }
+     if (global.io) {
+  try {
+    // 1. Notify Admin
+    global.io.to('admin').emit('order-updated', order);
+    
+    // 2. Notify Agent (Remember to use `user:` not `agent:`)
+    if (order.agentId) {
+      global.io.to(`user:${order.agentId}`).emit('order-updated', order);
+    }
+  } catch (err) {
+    console.error('Socket emit failed:', err);
+  }
+}
     } catch {
       // Socket server helper may not exist yet — safe to ignore
     }
