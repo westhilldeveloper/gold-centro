@@ -47,11 +47,11 @@ export async function POST(req) {
         branch: staff.branch,
       },
     });
-
+    const isProd = process.env.NODE_ENV === 'production';
     res.cookies.set('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 60 * 60 * 24 * 7,
       path: '/',
     });

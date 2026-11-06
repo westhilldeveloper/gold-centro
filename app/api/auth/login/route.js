@@ -44,11 +44,11 @@ export async function POST(req) {
         aadhaarNumber: user.aadhaarNumber || null,
       },
     });
-
+    const isProd = process.env.NODE_ENV === 'production';
     res.cookies.set('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 60 * 60 * 24 * 7,   // 7 days, matches JWT expiry
       path: '/',
     });
