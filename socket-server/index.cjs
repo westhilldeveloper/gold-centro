@@ -5,7 +5,7 @@ const { createServer } = require('http');
 const { Server } = require('socket.io');
 
 // Your existing helpers — reuse them as-is
-const { verifyToken } = require('./lib/server/auth.js');
+const { verifyToken } = require('./auth.js');
 
 const port = process.env.PORT || 3000;
 const httpServer = createServer();
@@ -26,12 +26,27 @@ function unauthorized(msg = 'UNAUTHORIZED') {
   return Object.assign(new Error(msg), { data: { code: 'UNAUTHORIZED' } });
 }
 
+const allowedOrigins = [
+  'http://localhost:3000', 
+  process.env.FRONTEND_URL  // e.g., https://your-app.vercel.app
+].filter(Boolean); 
+
 const io = new Server(httpServer, {
   path: '/socket.io',
   cors: {
-    // IMPORTANT: allow your Next.js frontend's URL (Vercel, etc.)
-    origin: process.env.FRONTEND_URL,   // e.g. https://your-app.vercel.app
-    credentials: true,                   // REQUIRED so the browser sends the JWT cookie
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, or same-origin)
+      if (!origin) return callback(null, true);
+      
+      // Check if the origin is in our allowed list
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.log(`Blocked by CORS: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true, // Required for cookies/JWT
   },
   pingInterval: 25000,
   pingTimeout: 20000,

@@ -1,0 +1,10 @@
+{
+  "name": "socket-server",
+  "version": "1.0.0",
+  "main": "index.cjs",
+  "dependencies": {
+    "socket.io": "^4.8.3",
+    "jsonwebtoken": "^9.0.3",
+    "dotenv": "^17.4.2"
+  }
+}
