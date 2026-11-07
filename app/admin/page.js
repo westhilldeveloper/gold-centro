@@ -89,22 +89,39 @@ export default function AdminPage() {
     fetchData();
 
     const socket = getSocket();
-    socket.emit('join-room', 'admin');
-    socket.on('new-order', (newOrder) => {
-      setPendingOrders((prev) => [newOrder, ...prev]);
+
+    // 1. Define named listener functions
+    const onNewOrder = (newOrder) => {
+      setPendingOrders((prev) => {
+        // Deduplicate in case it already exists
+        if (prev.some(o => o.id === newOrder.id)) return prev;
+        return [newOrder, ...prev];
+      });
       toast.success('New order received!');
-    });
-    socket.on('offer-updated', () => {
-      fetch('/api/orders/pending-approval')
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success) setPendingApprovalOrders(data.orders);
-        });
-    });
+    };
+
+    const onOfferUpdated = (updatedOrder) => {
+      // Update the list instead of refetching!
+      setPendingApprovalOrders((prev) => {
+        // If it's no longer pending, remove it
+        if (updatedOrder.status !== 'PENDING_APPROVAL') {
+          return prev.filter((o) => o.id !== updatedOrder.id);
+        }
+        // If it's new, add it
+        if (!prev.some((o) => o.id === updatedOrder.id)) {
+          return [updatedOrder, ...prev];
+        }
+        // If it exists, update it
+        return prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o));
+      });
+    };
+
+     socket.on('new-order', onNewOrder);
+    socket.on('offer-updated', onOfferUpdated);
 
     return () => {
-      socket.off('new-order');
-      socket.off('offer-updated');
+      socket.off('new-order', onNewOrder);
+      socket.off('offer-updated', onOfferUpdated);
     };
   }, [user]);
 
@@ -172,8 +189,8 @@ export default function AdminPage() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
     toast.success('✅ Rates published');
-    const socket = getSocket();
-    socket.emit('rate-updated', data.rate);
+    // const socket = getSocket();
+    // socket.emit('rate-updated', data.rate);
   } catch (err) {
     toast.error('❌ ' + err.message);
   }
@@ -225,8 +242,8 @@ export default function AdminPage() {
       const refresh = await fetch('/api/orders/pending-approval');
       const refreshData = await refresh.json();
       if (refreshData.success) setPendingApprovalOrders(refreshData.orders);
-      const socket = getSocket();
-      socket.emit('offer-updated', data.order);
+      // const socket = getSocket();
+      // socket.emit('offer-updated', data.order);
     } catch (err) {
       toast.error('❌ ' + err.message);
     } finally {

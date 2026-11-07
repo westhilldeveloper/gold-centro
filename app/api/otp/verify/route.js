@@ -1,5 +1,6 @@
 import { prisma } from '../../../../lib/prisma';
 import { NextResponse } from 'next/server';
+import { emitToRoom } from '../../../../lib/socket-helper';
 
 // 🔒 Ensure Node runtime so global.io is available
 export const runtime = 'nodejs';
@@ -75,13 +76,7 @@ export async function POST(req) {
     });
 
     // 5. Best-effort emit — never fails the request 
-    if (global.io) {
-      try {
-        global.io.to('admin').emit('new-order', order);
-      } catch (emitErr) {
-        console.error('Socket emit failed (non-fatal):', emitErr);
-      }
-    }
+     await emitToRoom('admin', 'new-order', order);
 
     return NextResponse.json({ success: true, order });
   } catch (err) {

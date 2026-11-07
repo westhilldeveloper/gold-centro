@@ -69,6 +69,28 @@ io.on('connection', (socket) => {
 
 // 3. 🔥 CRITICAL: Handle HTTP requests so Render's proxy allows WebSockets
 httpServer.on('request', (req, res) => {
+
+  if (req.method === 'POST' && req.url === '/emit') {
+    if (req.headers['x-internal-secret'] !== process.env.INTERNAL_SECRET) {
+      res.writeHead(401).end('Unauthorized');
+      return;
+    }
+
+    let body = '';
+    req.on('data', (chunk) => (body += chunk));
+    req.on('end', () => {
+      try {
+        const { room, event, payload } = JSON.parse(body);
+        // The server emits the event to the connected clients
+        io.to(room).emit(event, payload);
+        res.writeHead(200).end('ok');
+      } catch (err) {
+        res.writeHead(400).end('Bad Request');
+      }
+    });
+    return;
+  }
+  
   // If Render pings the root URL, reply with a 200 OK
   if (req.url === '/' || req.url === '/healthz') {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
