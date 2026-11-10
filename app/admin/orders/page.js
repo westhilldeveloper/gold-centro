@@ -240,7 +240,7 @@ export default function AdminOrdersPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ orderId, action, offerPrice, comment }),
+      body: JSON.stringify({ orderId, adminId: user.id, action, offerPrice, comment }),
     });
     const data = await res.json();
     if (!res.ok || !data.success) throw new Error(data.error || 'Failed');
