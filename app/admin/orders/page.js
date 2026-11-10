@@ -46,74 +46,100 @@ export default function AdminOrdersPage() {
   const [approving, setApproving] = useState({});
   const [previewImage, setPreviewImage] = useState(null);
 
-  useEffect(() => {
-  if (!user || user.role !== 'ADMIN') return;
+    useEffect(() => {
+    if (!user || user.role !== 'ADMIN') return;
 
-  const controller = new AbortController();
-  let cancelled = false;
+    const controller = new AbortController();
+    let cancelled = false;
 
-  const fetchData = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const [ordersRes, agentsRes, approvalRes] = await Promise.all([
-        fetch('/api/orders/pending', { credentials: 'include', signal: controller.signal }),
-        fetch('/api/users/agents', { credentials: 'include', signal: controller.signal }),
-        fetch('/api/orders/pending-approval', { credentials: 'include', signal: controller.signal }),
-      ]);
-      if (!ordersRes.ok) throw new Error('Failed to fetch orders');
-      if (!agentsRes.ok) throw new Error('Failed to fetch agents');
-      if (!approvalRes.ok) throw new Error('Failed to fetch approvals');
-      const [ordersData, agentsData, approvalData] = await Promise.all([
-        ordersRes.json(), agentsRes.json(), approvalRes.json(),
-      ]);
-      if (cancelled) return;
-      if (ordersData.success) setPendingOrders(ordersData.orders);
-      if (agentsData.success) setAgents(agentsData.agents);
-      if (approvalData.success) setPendingApprovalOrders(approvalData.orders);
-    } catch (err) {
-      if (err.name === 'AbortError' || cancelled) return;
-      setError(err.message);
-      toast.error(err.message);
-    } finally {
-      if (!cancelled) setLoading(false);
-    }
-  };
+    const fetchData = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const [ordersRes, agentsRes, approvalRes] = await Promise.all([
+          fetch('/api/orders/pending', { credentials: 'include', signal: controller.signal }),
+          fetch('/api/users/agents', { credentials: 'include', signal: controller.signal }),
+          fetch('/api/orders/pending-approval', { credentials: 'include', signal: controller.signal }),
+        ]);
+        if (!ordersRes.ok) throw new Error('Failed to fetch orders');
+        if (!agentsRes.ok) throw new Error('Failed to fetch agents');
+        if (!approvalRes.ok) throw new Error('Failed to fetch approvals');
+        const [ordersData, agentsData, approvalData] = await Promise.all([
+          ordersRes.json(), agentsRes.json(), approvalRes.json(),
+        ]);
+        if (cancelled) return;
+        if (ordersData.success) setPendingOrders(ordersData.orders);
+        if (agentsData.success) setAgents(agentsData.agents);
+        if (approvalData.success) setPendingApprovalOrders(approvalData.orders);
+      } catch (err) {
+        if (err.name === 'AbortError' || cancelled) return;
+        setError(err.message);
+        toast.error(err.message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
 
-  fetchData();
+    fetchData();
 
-  const socket = getSocket();
+    const socket = getSocket();
 
-  const onNewOrder = (order) => {
-    setPendingOrders((prev) =>
-      prev.some((o) => o.id === order.id) ? prev : [order, ...prev]
-    );
-    toast.success('New order received!');
-  };
+    // 1. New Order Arrived
+    const onNewOrder = (order) => {
+      setPendingOrders((prev) =>
+        prev.some((o) => o.id === order.id) ? prev : [order, ...prev]
+      );
+      toast.success('New order received!');
+    };
 
-  const onOfferUpdated = (order) => {
-    // Patch from payload, no refetch
-    setPendingApprovalOrders((prev) => {
-      const exists = prev.some((o) => o.id === order.id);
-      if (exists) return prev.map((o) => (o.id === order.id ? order : o));
-      // If it's newly entering approval, add it
-      if (order.status === 'PENDING_APPROVAL') return [order, ...prev];
-      return prev;
-    });
-    // Also patch pending orders list in case the order moved out of it
-    setPendingOrders((prev) => prev.filter((o) => o.id !== order.id));
-  };
+    // 2. Any Order State Change (Assigned, Arrived, Offer Sent, etc.)
+    const onOrderChanged = (updatedOrder) => {
+      // Update Pending Orders (Ready to assign list)
+      setPendingOrders((prev) => {
+        // If the status is OTP_VERIFIED, it belongs here. Update or add it.
+        if (updatedOrder.status === 'OTP_VERIFIED') {
+          const exists = prev.some((o) => o.id === updatedOrder.id);
+          return exists 
+            ? prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o)) 
+            : [updatedOrder, ...prev];
+        }
+        // If it's any other status (e.g., AGENT_ASSIGNED), remove it from this list.
+        return prev.filter((o) => o.id !== updatedOrder.id);
+      });
 
-  socket.on('new-order', onNewOrder);
-  socket.on('offer-updated', onOfferUpdated);
+      // Update Pending Approvals (Agent Offer list)
+      setPendingApprovalOrders((prev) => {
+        // Check if the status belongs in the approval tab
+        // (Adjust 'PENDING_APPROVAL' to whatever status your DB uses when agent sends an offer)
+        const isPendingApproval = ['PENDING_APPROVAL', 'AGENT_OFFER_SENT'].includes(updatedOrder.status);
 
-  return () => {
-    cancelled = true;
-    controller.abort();
-    socket.off('new-order', onNewOrder);
-    socket.off('offer-updated', onOfferUpdated);
-  };
-}, [user]);
+        if (isPendingApproval) {
+          const exists = prev.some((o) => o.id === updatedOrder.id);
+          return exists
+            ? prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o))
+            : [updatedOrder, ...prev];
+        }
+        // If it's no longer pending approval, remove it.
+        return prev.filter((o) => o.id !== updatedOrder.id);
+      });
+    };
+
+    // 3. Attach Listeners
+    socket.on('new-order', onNewOrder);
+    socket.on('offer-updated', onOrderChanged);   // From admin-review & verify-agent
+    socket.on('order-assigned', onOrderChanged);  // From assign route
+    socket.on('order-updated', onOrderChanged);   // From other status changes
+
+    // 4. Cleanup
+    return () => {
+      cancelled = true;
+      controller.abort();
+      socket.off('new-order', onNewOrder);
+      socket.off('offer-updated', onOrderChanged);
+      socket.off('order-assigned', onOrderChanged);
+      socket.off('order-updated', onOrderChanged);
+    };
+  }, [user]);
 
   const filteredOrders = useMemo(() => {
     let filtered = [...pendingOrders];
