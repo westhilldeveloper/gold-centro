@@ -1,5 +1,6 @@
 import { prisma } from '../../../../lib/prisma';
 import { NextResponse } from 'next/server';
+import { emitToRoom } from '@/lib/socket-helper';
 
 export const runtime = 'nodejs';
 
@@ -62,10 +63,9 @@ export async function POST(req) {
       },
     });
 
-    // 🔥 Emit to that specific agent's room
-    global.io?.to('admin').emit('order-assigned', order);
-// The specific agent gets a live "new assignment" push
-global.io?.to(`user:${agentId}`).emit('new-assignment', order);
+    await emitToRoom('admin', 'order-assigned', order);
+    await emitToRoom(`user:${agentId}`,'new-assignment', order)
+   
 
     return NextResponse.json({ success: true, order });
   } catch (err) {
@@ -74,4 +74,4 @@ global.io?.to(`user:${agentId}`).emit('new-assignment', order);
       { status: 500 }
     );
   }
-}
+} 

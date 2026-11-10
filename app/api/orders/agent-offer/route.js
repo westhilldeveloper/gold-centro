@@ -1,5 +1,6 @@
 import { prisma } from '../../../../lib/prisma';
 import { NextResponse } from 'next/server';
+import { emitToRoom } from '@/lib/socket-helper';
 
 export async function POST(req) {
   try {
@@ -106,9 +107,8 @@ export async function POST(req) {
     });
 
     // Emit socket
-    if (globalThis.io) {
-      globalThis.io.to('admin').emit('offer-updated', updated);
-    }
+    await emitToRoom('admin', 'offer-updated', updated);
+    
 
     return NextResponse.json({ success: true, order: updated });
   } catch (err) {

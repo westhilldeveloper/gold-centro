@@ -1,5 +1,6 @@
 import { prisma } from '../../../../lib/prisma';
 import { NextResponse } from 'next/server';
+import { emitToRoom } from '@/lib/socket-helper';
 
 export const runtime = 'nodejs';
 
@@ -55,12 +56,10 @@ export async function POST(req) {
     });
 
     // 🔥 EMIT `updated`
-    if (globalThis.io) {
-      globalThis.io.to(`customer:${updated.customerId}`).emit('order-updated', updated);
-      globalThis.io.to('admin').emit('offer-updated', updated);
-      globalThis.io.to(`agent:${updated.agentId}`).emit('order-updated', updated);
-      console.log(`📤 AGENT_ARRIVED emitted for order ${updated.id}`);
-    }
+    await emitToRoom('admin', 'offer-updated', updated);
+     await emitToRoom(`user:${updated.customerId}`,'order-updated', updated)
+    await emitToRoom(`user:${updated.agentId}`,'order-updated', updated)
+   
 
     return NextResponse.json({
       success: true,

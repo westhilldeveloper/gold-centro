@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
@@ -19,6 +19,7 @@ import {
   FunnelIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
+import { getSocket } from '@/lib/socket';
 
 const PAGE_SIZE = 20;
 
@@ -107,6 +108,36 @@ export default function AdminAllOrdersPage() {
     load({ page: 1 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, search, from, to]);
+
+    // 👈 1. Use a ref to always hold the latest `load` function
+  const loadRef = useRef(load);
+  useEffect(() => {
+    loadRef.current = load;
+  }, [load]);
+
+  // 👈 2. Setup Socket Listeners for real-time updates
+  useEffect(() => {
+    const socket = getSocket();
+
+    const handleRealtimeUpdate = () => {
+      // Silently refresh the current page and stats
+      // We use loadRef.current to avoid stale closures
+      loadRef.current({ refresh: true });
+    };
+
+    // Listen to all events that might affect the orders list
+    socket.on('new-order', handleRealtimeUpdate);
+    socket.on('order-assigned', handleRealtimeUpdate);
+    socket.on('offer-updated', handleRealtimeUpdate);
+    socket.on('order-updated', handleRealtimeUpdate);
+
+    return () => {
+      socket.off('new-order', handleRealtimeUpdate);
+      socket.off('order-assigned', handleRealtimeUpdate);
+      socket.off('offer-updated', handleRealtimeUpdate);
+      socket.off('order-updated', handleRealtimeUpdate);
+    };
+  }, []);
 
   // Debounce the search input → apply on Enter or after 400 ms of inactivity
   useEffect(() => {

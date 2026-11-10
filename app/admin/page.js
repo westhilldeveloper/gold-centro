@@ -100,14 +100,17 @@ export default function AdminPage() {
       toast.success('New order received!');
     };
 
-    const onOfferUpdated = (updatedOrder) => {
-      // Update the list instead of refetching!
+     const onOrderStateChanged = (updatedOrder) => {
+      // If an order is updated, it's likely no longer in the "Pending Assignment" list
+      setPendingOrders((prev) => prev.filter((o) => o.id !== updatedOrder.id));
+
+      // Update the Pending Approvals list
       setPendingApprovalOrders((prev) => {
-        // If it's no longer pending, remove it
+        // If it's no longer pending approval, remove it
         if (updatedOrder.status !== 'PENDING_APPROVAL') {
           return prev.filter((o) => o.id !== updatedOrder.id);
         }
-        // If it's new, add it
+        // If it's new to the list, add it
         if (!prev.some((o) => o.id === updatedOrder.id)) {
           return [updatedOrder, ...prev];
         }
@@ -115,13 +118,18 @@ export default function AdminPage() {
         return prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o));
       });
     };
+    
 
-     socket.on('new-order', onNewOrder);
-    socket.on('offer-updated', onOfferUpdated);
+    socket.on('new-order', onNewOrder);
+    socket.on('offer-updated', onOrderStateChanged);
+    socket.on('order-assigned', onOrderStateChanged); 
+    socket.on('order-updated', onOrderStateChanged); 
 
     return () => {
-      socket.off('new-order', onNewOrder);
-      socket.off('offer-updated', onOfferUpdated);
+       socket.off('new-order', onNewOrder);
+      socket.off('offer-updated', onOrderStateChanged);
+      socket.off('order-assigned', onOrderStateChanged);
+      socket.off('order-updated', onOrderStateChanged);
     };
   }, [user]);
 
@@ -199,7 +207,7 @@ export default function AdminPage() {
   const assignAgent = async (orderId, agentId) => {
     if (!agentId) {
       toast.error('Please select an agent');
-      return;
+      return; 
     }
     setAssigning((prev) => ({ ...prev, [orderId]: true }));
     try {
@@ -238,10 +246,10 @@ export default function AdminPage() {
       toast.success(
         '✅ ' + (action === 'accept_agent_offer' ? 'Offer accepted!' : 'Proposal sent!')
       );
-      setPendingApprovalOrders((prev) => prev.filter((o) => o.id !== orderId));
-      const refresh = await fetch('/api/orders/pending-approval');
-      const refreshData = await refresh.json();
-      if (refreshData.success) setPendingApprovalOrders(refreshData.orders);
+      // setPendingApprovalOrders((prev) => prev.filter((o) => o.id !== orderId));
+      // const refresh = await fetch('/api/orders/pending-approval');
+      // const refreshData = await refresh.json();
+      // if (refreshData.success) setPendingApprovalOrders(refreshData.orders);
       // const socket = getSocket();
       // socket.emit('offer-updated', data.order);
     } catch (err) {

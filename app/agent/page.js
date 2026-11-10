@@ -13,20 +13,52 @@ import {
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../context/AuthContext';
 import AgentStatCard from '../components/AgentStatCard';
+import { getSocket } from '../../lib/socket'; // 👈 1. Import getSocket
 
 export default function AgentDashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // 👈 2. Move the fetch logic into a reusable function
+  const fetchStats = async () => {
+    if (!user?.id) return;
+    try {
+      const res = await fetch(`/api/agent/dashboard?agentId=${user.id}`);
+      const d = await res.json();
+      if (d.success) setStats(d.stats);
+    } catch (err) {
+      console.error('Failed to fetch stats:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!user?.id) return;
-    fetch(`/api/agent/dashboard?agentId=${user.id}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.success) setStats(d.stats);
-      })
-      .finally(() => setLoading(false));
+
+    // Initial fetch
+    fetchStats();
+
+    // 👈 3. Setup Socket Listener
+    const socket = getSocket();
+
+    // If any of these happen, the agent's stats likely changed.
+    // We just re-fetch to get the most accurate up-to-date numbers.
+    const refreshDashboard = () => {
+      fetchStats();
+    };
+
+    socket.on('new-assignment', refreshDashboard);
+    socket.on('order-updated', refreshDashboard);
+    socket.on('offer-updated', refreshDashboard);
+
+    return () => {
+      // 4. Cleanup listeners
+      socket.off('new-assignment', refreshDashboard);
+      socket.off('order-updated', refreshDashboard);
+      socket.off('offer-updated', refreshDashboard);
+    };
   }, [user]);
 
   if (loading || !stats) {
