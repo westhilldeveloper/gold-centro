@@ -103,11 +103,14 @@ export async function POST(req) {
       : null,
   },
   include: { items: true },
+  customer: { select: { id: true, name: true, phone: true } },
+          agent: { select: { id: true, name: true, phone: true } },
 });
     });
 
     // Emit socket
     await emitToRoom('admin', 'offer-updated', updated);
+    await emitToRoom(`user:${agentId}`, 'offer-updated', updated);
     
 
     return NextResponse.json({ success: true, order: updated });
