@@ -1,3 +1,4 @@
+// D:\gold-centro\app\api\orders\agent-offer\route.js
 import { prisma } from '../../../../lib/prisma';
 import { NextResponse } from 'next/server';
 import { emitToRoom } from '@/lib/socket-helper';
@@ -13,9 +14,9 @@ export async function POST(req) {
       paymentMode,
       items,
       isPledged,
-  pledgeBankName,
-  pledgeLoanAccountNo,
-  pledgeOutstandingAmount,
+      pledgeBankName,
+      pledgeLoanAccountNo,
+      pledgeOutstandingAmount,
     } = await req.json();
 
     if (!orderId || !agentId || !offeredPrice) {
@@ -34,14 +35,14 @@ export async function POST(req) {
       throw new Error('Cannot send offer in current status');
     }
 
-    // NEW: fetch the live rate to snapshot serviceChargePercent
+    // Fetch the live rate to snapshot serviceChargePercent
     const goldRate = await prisma.goldRate.findFirst({
       where: { expiryTime: { gt: new Date() } },
       orderBy: { effectiveFrom: 'desc' },
     });
     const serviceChargePercent = goldRate?.serviceChargePercent || 0;
 
-    // NEW: compute subtotal server-side from items (never trust client)
+    // Compute subtotal server-side from items (never trust client)
     const subtotal = (Array.isArray(items) ? items : []).reduce((sum, it) => {
       const net = parseFloat(it.netWeight) || 0;
       const rate = parseFloat(it.ratePerGram) || 0;
@@ -79,39 +80,41 @@ export async function POST(req) {
       }
 
       return tx.order.update({
-  where: { id: orderId },
-  data: {
-    weight: parseFloat(weight) || order.weight,
-    purity: purity || order.purity,
-    agentOffer: parseFloat(offeredPrice),
-    paymentMode: paymentMode || null,
-    status:
-      order.status === 'ADMIN_OFFER_SENT'
-        ? 'NEGOTIATING'
-        : 'AGENT_OFFER_SENT',
+        where: { id: orderId },
+        data: {
+          weight: parseFloat(weight) || order.weight,
+          purity: purity || order.purity,
+          agentOffer: parseFloat(offeredPrice),
+          paymentMode: paymentMode || null,
+          status:
+            order.status === 'ADMIN_OFFER_SENT'
+              ? 'NEGOTIATING'
+              : 'AGENT_OFFER_SENT',
 
-    // Existing service charge snapshot
-    serviceChargePercent,
-    serviceChargeAmount,
+          // Service charge snapshot
+          serviceChargePercent,
+          serviceChargeAmount,
 
-    // NEW: pledge snapshot from agent
-    isPledged: !!isPledged,
-    pledgeBankName: isPledged ? pledgeBankName || null : null,
-    pledgeLoanAccountNo: isPledged ? pledgeLoanAccountNo || null : null,
-    pledgeOutstandingAmount: isPledged
-      ? Number(pledgeOutstandingAmount) || 0
-      : null,
-  },
-  include: { items: true },
-  customer: { select: { id: true, name: true, phone: true } },
+          // Pledge snapshot from agent
+          isPledged: !!isPledged,
+          pledgeBankName: isPledged ? pledgeBankName || null : null,
+          pledgeLoanAccountNo: isPledged ? pledgeLoanAccountNo || null : null,
+          pledgeOutstandingAmount: isPledged
+            ? Number(pledgeOutstandingAmount) || 0
+            : null,
+        },
+        // ✅ FIXED: Moved customer and agent INSIDE the include block
+        include: { 
+          items: true,
+          customer: { select: { id: true, name: true, phone: true } },
           agent: { select: { id: true, name: true, phone: true } },
-});
+        },
+      });
     });
 
     // Emit socket
     await emitToRoom('admin', 'offer-updated', updated);
     await emitToRoom(`user:${agentId}`, 'offer-updated', updated);
-    
 
     return NextResponse.json({ success: true, order: updated });
   } catch (err) {
