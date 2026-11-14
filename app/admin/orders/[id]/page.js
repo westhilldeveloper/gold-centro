@@ -137,6 +137,48 @@ export default function OrderDetailPage() {
     return groups;
   }, [data]);
 
+  // Extract movement documents (transfer notes, receiving notes) from the timeline
+// Extract movement documents (transfer notes, receiving notes) from the timeline
+const movementDocuments = useMemo(() => {
+  if (!data?.orderTimeline) return [];
+  const docs = [];
+  const seen = new Set();
+  data.orderTimeline.forEach((event) => {
+    if (event.transferNoteUrl && !seen.has(event.transferNoteUrl)) {
+      docs.push({
+        label: `Transfer Note${
+          event.movementId ? ` #${event.movementId.slice(-6).toUpperCase()}` : ''
+        }`,
+        url: event.transferNoteUrl,
+        type: 'transfer',
+      });
+      seen.add(event.transferNoteUrl);
+    }
+    if (event.receivingNoteUrl && !seen.has(event.receivingNoteUrl)) {
+      docs.push({
+        label: `Receiving Note${
+          event.movementId ? ` #${event.movementId.slice(-6).toUpperCase()}` : ''
+        }`,
+        url: event.receivingNoteUrl,
+        type: 'receiving',
+      });
+      seen.add(event.receivingNoteUrl);
+    }
+    // Legacy — old field name
+    if (event.handoverSheetUrl && !seen.has(event.handoverSheetUrl)) {
+      docs.push({
+        label: `Handover Sheet${
+          event.movementId ? ` #${event.movementId.slice(-6).toUpperCase()}` : ''
+        }`,
+        url: event.handoverSheetUrl,
+        type: 'transfer',
+      });
+      seen.add(event.handoverSheetUrl);
+    }
+  });
+  return docs;
+}, [data]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -454,17 +496,42 @@ export default function OrderDetailPage() {
                     )}
                   </div>
 
-                  {event.handoverSheetUrl && (
-                    <a
-                      href={event.handoverSheetUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800 mt-1.5 underline font-medium"
-                    >
-                      <ArrowDownTrayIcon className="w-3 h-3" /> View signed
-                      handover sheet
-                    </a>
-                  )}
+                  {(event.transferNoteUrl ||
+  event.receivingNoteUrl ||
+  event.handoverSheetUrl) && (
+  <div className="flex flex-wrap gap-2 mt-1.5">
+    {event.transferNoteUrl && (
+      <a
+        href={event.transferNoteUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 text-[11px] bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 px-2 py-1 rounded-lg underline-offset-2 hover:underline font-medium"
+      >
+        <ArrowDownTrayIcon className="w-3 h-3" /> View Transfer Note
+      </a>
+    )}
+    {event.receivingNoteUrl && (
+      <a
+        href={event.receivingNoteUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 text-[11px] bg-green-50 hover:bg-green-100 border border-green-200 text-green-800 px-2 py-1 rounded-lg underline-offset-2 hover:underline font-medium"
+      >
+        <ArrowDownTrayIcon className="w-3 h-3" /> View Receiving Note
+      </a>
+    )}
+    {event.handoverSheetUrl && (
+      <a
+        href={event.handoverSheetUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 text-[11px] bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-800 px-2 py-1 rounded-lg underline-offset-2 hover:underline font-medium"
+      >
+        <ArrowDownTrayIcon className="w-3 h-3" /> View Handover Sheet
+      </a>
+    )}
+  </div>
+)}
                 </div>
               </motion.div>
             );
@@ -550,58 +617,92 @@ export default function OrderDetailPage() {
       </div>
 
       {/* Documents */}
-            {/* Documents */}
-      <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Documents
-        </h2>
-        <div className="flex flex-wrap gap-3">
-          
-          {/* Branch Direct Purchase Agreement */}
-          {order.orderType === 'BRANCH_DIRECT' && (
-            <DocumentLink
-              label="Signed Purchase Agreement"
-              url={order.purchaseAgreementUrl}
-            />
-          )}
+<div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+  <h2 className="text-lg font-semibold text-gray-900 mb-4">Documents</h2>
 
-          {/* Agent Purchase Documents */}
-          {order.orderType !== 'BRANCH_DIRECT' && (
-            <>
-              <DocumentLink
-                label="Signed receipt"
-                url={order.signedDocumentUrl}
-              />
-              <DocumentLink
-                label="Pledge declaration"
-                url={order.pledgeDeclarationUrl}
-              />
-            </>
-          )}
+  {/* ─── Purchase Documents ─── */}
+  <div className="mb-5">
+    <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2">
+      📋 Purchase Documents
+    </p>
+    <div className="flex flex-wrap gap-3">
+      {order.orderType === 'BRANCH_DIRECT' ? (
+        <>
+          <DocumentLink
+            label="Estimate Agreement"
+            url={order.estimateAgreementUrl}
+          />
+          <DocumentLink
+            label="Final Purchase Agreement"
+            url={order.purchaseAgreementUrl}
+          />
+        </>
+      ) : (
+        <>
+          <DocumentLink
+            label="Signed Receipt"
+            url={order.signedDocumentUrl}
+          />
+          <DocumentLink
+            label="Pledge Declaration"
+            url={order.pledgeDeclarationUrl}
+          />
+        </>
+      )}
+    </div>
+  </div>
 
-          {order.receiptAcknowledgedAt && (
-            <div className="flex items-center gap-2 text-xs bg-green-50 border border-green-200 px-3 py-2 rounded-xl text-green-800">
-              <CheckCircleIcon className="w-4 h-4" />
-              Receipt acknowledged{' '}
-              {new Date(order.receiptAcknowledgedAt).toLocaleString()}
-            </div>
-          )}
-        </div>
-
-        {/* Pledge details (Applies to both types if marked as pledged) */}
-        {order.isPledged && (
-          <div className="mt-4 bg-rose-50 border border-rose-200 rounded-xl p-3">
-            <p className="text-[10px] uppercase tracking-wider text-rose-700 font-semibold flex items-center gap-1">
-              <LockClosedIcon className="w-3.5 h-3.5" /> Pledged
-            </p>
-            <p className="text-sm text-gray-800 mt-1">
-              {order.pledgeBankName} • A/c{' '}
-              {order.pledgeLoanAccountNo} • ₹
-              {(order.pledgeOutstandingAmount || 0).toFixed(2)}
-            </p>
-          </div>
-        )}
+  {/* ─── Movement Documents ─── */}
+  {movementDocuments.length > 0 && (
+    <div className="mb-5">
+      <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold mb-2">
+        🚚 Movement Documents ({movementDocuments.length})
+      </p>
+      <div className="flex flex-wrap gap-3">
+        {movementDocuments.map((doc, idx) => (
+          <a
+            key={idx}
+            href={doc.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`flex items-center gap-2 text-xs px-3 py-2 rounded-xl transition font-medium border ${
+              doc.type === 'transfer'
+                ? 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100'
+                : 'bg-green-50 border-green-200 text-green-800 hover:bg-green-100'
+            }`}
+          >
+            <DocumentTextIcon className="w-4 h-4" />
+            {doc.label}
+            <ArrowDownTrayIcon className="w-3.5 h-3.5" />
+          </a>
+        ))}
       </div>
+    </div>
+  )}
+
+  {/* ─── Receipt acknowledgment badge ─── */}
+  {order.receiptAcknowledgedAt && (
+    <div className="mb-4 flex items-center gap-2 text-xs bg-green-50 border border-green-200 px-3 py-2 rounded-xl text-green-800">
+      <CheckCircleIcon className="w-4 h-4" />
+      Receipt acknowledged{' '}
+      {new Date(order.receiptAcknowledgedAt).toLocaleString()}
+    </div>
+  )}
+
+  {/* ─── Pledge details ─── */}
+  {order.isPledged && (
+    <div className="mt-4 bg-rose-50 border border-rose-200 rounded-xl p-3">
+      <p className="text-[10px] uppercase tracking-wider text-rose-700 font-semibold flex items-center gap-1">
+        <LockClosedIcon className="w-3.5 h-3.5" /> Pledged
+      </p>
+      <p className="text-sm text-gray-800 mt-1">
+        {order.pledgeBankName} • A/c {order.pledgeLoanAccountNo} • ₹
+        {(order.pledgeOutstandingAmount || 0).toFixed(2)}
+      </p>
+    </div>
+  )}
+</div>
+       
 
       {/* Item pipeline modal */}
       <ItemPipelineModal

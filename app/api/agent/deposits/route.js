@@ -16,17 +16,11 @@ export async function GET(req) {
       );
     }
 
-    // ---- Pagination params ----
+    // ---- Pagination ----
     const rawPage = parseInt(searchParams.get('page') || '1', 10);
-    const rawLimit = parseInt(
-      searchParams.get('limit') || String(DEFAULT_PAGE_SIZE),
-      10
-    );
+    const rawLimit = parseInt(searchParams.get('limit') || String(DEFAULT_PAGE_SIZE), 10);
     const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
-    const limit =
-      Number.isFinite(rawLimit) && rawLimit > 0
-        ? Math.min(rawLimit, MAX_PAGE_SIZE)
-        : DEFAULT_PAGE_SIZE;
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, MAX_PAGE_SIZE) : DEFAULT_PAGE_SIZE;
     const skip = (page - 1) * limit;
 
     // ---- Filters ----
@@ -36,7 +30,6 @@ export async function GET(req) {
 
     const where = { agentId };
     if (search) {
-      // Search by deposit id, branch name, branch code, or notes
       where.OR = [
         { id: { contains: search, mode: 'insensitive' } },
         { branch: { name: { contains: search, mode: 'insensitive' } } },
@@ -55,7 +48,7 @@ export async function GET(req) {
     }
 
     // ---- Parallel fetch ----
-    const [deposits, filteredCount, custodyOrders, allDeposits] =
+    const [deposits, filteredCount, custodyOrders, allDeposits, carrierItems] =
       await Promise.all([
         // Paginated, filtered deposits
         prisma.agentDeposit.findMany({
@@ -66,53 +59,64 @@ export async function GET(req) {
           include: { branch: { select: { name: true, code: true } } },
         }),
 
-        // Total deposits matching the filter (for pagination math)
         prisma.agentDeposit.count({ where }),
 
-        // Custody orders — always full list
+        // Custody orders (bought but not deposited)
         prisma.order.findMany({
-          where: {
-            agentId,
-            status: 'COMPLETED',
-            depositedToBranch: false,
-          },
+          where: { agentId, status: 'COMPLETED', depositedToBranch: false },
           orderBy: { createdAt: 'desc' },
           select: {
-            id: true,
-            weight: true,
-            purity: true,
-            finalPrice: true,
-            createdAt: true,
+            id: true, weight: true, purity: true,
+            finalPrice: true, createdAt: true,
           },
         }),
 
-        // ALL deposits (lightweight) — used only for the summary totals
-        // Ignores search/date filters so the stats never lie
+        // All deposits (full dataset for totals)
         prisma.agentDeposit.findMany({
           where: { agentId },
           select: { weight: true, purity: true },
         }),
+
+        // ✅ NEW: items physically carried by this agent (mid-transfer)
+        prisma.orderItem.findMany({
+          where: {
+            currentAgentId: agentId,
+            currentBranchId: null,
+          },
+          orderBy: { createdAt: 'desc' },
+          include: {
+            order: {
+              select: {
+                id: true,
+                purity: true,
+                finalPrice: true,
+                createdAt: true,
+                customer: { select: { name: true } },
+              },
+            },
+          },
+        }),
       ]);
 
-    // ---- Compute summaries from the FULL dataset ----
-    const depositedTotal = allDeposits.reduce(
-      (s, d) => s + (d.weight || 0),
-      0
-    );
+    // ---- Summaries ----
+    const depositedTotal = allDeposits.reduce((s, d) => s + (d.weight || 0), 0);
     const depositedByPurity = {};
     allDeposits.forEach((d) => {
-      depositedByPurity[d.purity] =
-        (depositedByPurity[d.purity] || 0) + (d.weight || 0);
+      depositedByPurity[d.purity] = (depositedByPurity[d.purity] || 0) + (d.weight || 0);
     });
 
-    const custodyTotal = custodyOrders.reduce(
-      (s, o) => s + (o.weight || 0),
-      0
-    );
+    const custodyTotal = custodyOrders.reduce((s, o) => s + (o.weight || 0), 0);
     const custodyByPurity = {};
     custodyOrders.forEach((o) => {
-      custodyByPurity[o.purity] =
-        (custodyByPurity[o.purity] || 0) + (o.weight || 0);
+      custodyByPurity[o.purity] = (custodyByPurity[o.purity] || 0) + (o.weight || 0);
+    });
+
+    // ✅ NEW: carrier totals
+    const carrierTotal = carrierItems.reduce((s, it) => s + (it.netWeight || 0), 0);
+    const carrierByPurity = {};
+    carrierItems.forEach((it) => {
+      const p = it.purity || it.order?.purity || 'Unknown';
+      carrierByPurity[p] = (carrierByPurity[p] || 0) + (it.netWeight || 0);
     });
 
     const totalPages = Math.max(1, Math.ceil(filteredCount / limit));
@@ -121,7 +125,7 @@ export async function GET(req) {
       success: true,
       deposits,
       custodyOrders,
-      // Totals computed over ALL deposits (not just current page)
+      carrierItems, // ✅ NEW
       totals: {
         depositedTotal,
         depositedByPurity,
@@ -129,10 +133,13 @@ export async function GET(req) {
         custodyTotal,
         custodyByPurity,
         custodyCount: custodyOrders.length,
+        // ✅ NEW
+        carrierTotal,
+        carrierByPurity,
+        carrierCount: carrierItems.length,
       },
       pagination: {
-        page,
-        limit,
+        page, limit,
         total: filteredCount,
         totalPages,
         hasMore: page < totalPages,

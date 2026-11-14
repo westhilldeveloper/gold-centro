@@ -40,14 +40,12 @@ export async function POST(req) {
       itemIds,
       description,
       createdBy,
-      // ── NEW ─────────────────────────────
       handedOverByName,
       handedOverByPhone,
       carrierType,
       carrierId,
       carrierName,
       carrierPhone,
-      // ────────────────────────────────────
     } = await req.json();
 
     if (!fromBranchId || !toBranchId || !itemIds?.length || !createdBy) {
@@ -68,6 +66,10 @@ export async function POST(req) {
         { status: 400 }
       );
     }
+
+    // ✅ NEW: detect whether an agent is physically carrying the items
+    const isAgentCarrier =
+      carrierType === 'AGENT' && carrierId && carrierId.trim();
 
     const items = await prisma.orderItem.findMany({
       where: { id: { in: itemIds }, currentBranchId: fromBranchId },
@@ -103,22 +105,25 @@ export async function POST(req) {
             description: description || null,
             createdBy,
             itemIds: data.ids,
-            // ── NEW ─────────────────────────────
             handedOverByName: handedOverByName?.trim() || null,
             handedOverByPhone: handedOverByPhone?.trim() || null,
             carrierType: carrierType || 'OTHER',
             carrierId: carrierId || null,
             carrierName: carrierName.trim(),
             carrierPhone: carrierPhone?.trim() || null,
-            // ────────────────────────────────────
           },
         });
         created.push(movement);
       }
 
+      // Move items out of the branch. If the carrier is an agent,
+      // put them into that agent's custody (currentAgentId).
       await tx.orderItem.updateMany({
         where: { id: { in: itemIds } },
-        data: { currentBranchId: null },
+        data: {
+          currentBranchId: null,
+          currentAgentId: isAgentCarrier ? carrierId : null,
+        },
       });
 
       return created;

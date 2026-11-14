@@ -1,4 +1,4 @@
-// D:\gold-centro\app\api\admin\orders\[id]\pipeline\route.js
+// app/api/admin/orders/[id]/pipeline/route.js
 import { prisma } from '../../../../../../lib/prisma';
 import { NextResponse } from 'next/server';
 
@@ -7,15 +7,15 @@ export async function GET(req, { params }) {
     const { id } = await params;
 
     const order = await prisma.order.findUnique({
-  where: { id },
-  include: {
-    customer: { select: { id: true, name: true, phone: true, aadhaarNumber: true } },
-    agent: { select: { id: true, name: true, phone: true, branch: { select: { id: true, name: true, code: true } } } },
-    staff: { select: { id: true, name: true, phone: true } }, 
-    branch: { select: { id: true, name: true, code: true, phone: true } },
-    items: { orderBy: { createdAt: 'asc' } }, 
-  },
-});
+      where: { id },
+      include: {
+        customer: { select: { id: true, name: true, phone: true, aadhaarNumber: true } },
+        agent: { select: { id: true, name: true, phone: true, branch: { select: { id: true, name: true, code: true } } } },
+        staff: { select: { id: true, name: true, phone: true } },
+        branch: { select: { id: true, name: true, code: true, phone: true } },
+        items: { orderBy: { createdAt: 'asc' } },
+      },
+    });
 
     if (!order) {
       return NextResponse.json(
@@ -51,9 +51,7 @@ export async function GET(req, { params }) {
               branch: { select: { id: true, name: true, code: true } },
               bars: {
                 include: {
-                  currentBranch: {
-                    select: { id: true, name: true, code: true },
-                  },
+                  currentBranch: { select: { id: true, name: true, code: true } },
                 },
               },
             },
@@ -62,7 +60,7 @@ export async function GET(req, { params }) {
         : [],
     ]);
 
-    // Resolve all branch IDs we'll need
+    // Resolve branch IDs
     const branchIdsToResolve = new Set();
     order.items.forEach((i) => {
       if (i.currentBranchId) branchIdsToResolve.add(i.currentBranchId);
@@ -91,24 +89,29 @@ export async function GET(req, { params }) {
 
     // Build per-item pipelines
     const itemPipelines = order.items.map((item) => {
-  const timeline = [];
+      const timeline = [];
 
-  // Update the RECORDED event
-  timeline.push({
-    stage: 'RECORDED',
-    label: 'Item recorded',
-    description: order.orderType === 'BRANCH_DIRECT' 
-      ? `Added by ${order.staff?.name || 'Staff'} at branch`
-      : `Added by ${order.agent?.name || 'Agent'}`,
-    timestamp: item.createdAt,
-    actor: order.orderType === 'BRANCH_DIRECT'
-      ? (order.staff ? { name: order.staff.name, role: 'STAFF' } : null)
-      : (order.agent ? { name: order.agent.name, role: 'AGENT' } : null),
-    location: order.orderType === 'BRANCH_DIRECT' ? order.branch : null,
-    icon: 'document',
-    color: 'blue',
-  });
-
+      // 1) Item recorded
+      timeline.push({
+        stage: 'RECORDED',
+        label: 'Item recorded',
+        description:
+          order.orderType === 'BRANCH_DIRECT'
+            ? `Added by ${order.staff?.name || 'Staff'} at branch`
+            : `Added by ${order.agent?.name || 'Agent'}`,
+        timestamp: item.createdAt,
+        actor:
+          order.orderType === 'BRANCH_DIRECT'
+            ? order.staff
+              ? { name: order.staff.name, role: 'STAFF' }
+              : null
+            : order.agent
+            ? { name: order.agent.name, role: 'AGENT' }
+            : null,
+        location: order.orderType === 'BRANCH_DIRECT' ? order.branch : null,
+        icon: 'document',
+        color: 'blue',
+      });
 
       // 2) Purchase completed
       if (order.status === 'COMPLETED') {
@@ -130,7 +133,7 @@ export async function GET(req, { params }) {
         });
       }
 
-      // 3) Deposit (only once per order — but recorded per item)
+      // 3) Deposit
       if (deposit) {
         timeline.push({
           stage: 'DEPOSITED',
@@ -176,7 +179,8 @@ export async function GET(req, { params }) {
           icon: 'truck',
           color: 'yellow',
           movementId: m.id,
-          handoverSheetUrl: m.handoverSheetUrl,
+          // ✅ CHANGED
+          transferNoteUrl: m.transferNoteUrl || null,
           siblingCount: (m.itemIds || []).length - 1,
         });
 
@@ -195,6 +199,8 @@ export async function GET(req, { params }) {
             icon: 'check',
             color: 'green',
             movementId: m.id,
+            // ✅ ADDED
+            receivingNoteUrl: m.receivingNoteUrl || null,
           });
         } else if (m.status === 'CANCELLED') {
           timeline.push({
@@ -223,7 +229,7 @@ export async function GET(req, { params }) {
         }
       });
 
-      // 5) Melting batch touching this item
+      // 5) Melting batch
       const itemBatch = meltingBatches.find((b) =>
         (b.itemIds || []).includes(item.id)
       );
@@ -281,9 +287,7 @@ export async function GET(req, { params }) {
         }
       }
 
-      timeline.sort(
-        (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
-      );
+      timeline.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
       // ---- Current status ----
       let currentStatus = 'UNKNOWN';
@@ -293,9 +297,7 @@ export async function GET(req, { params }) {
       if (item.status === 'MELTED') {
         currentStatus = 'MELTED';
         const bar = itemBatch?.bars.find((b) => b.id === item.meltedIntoBarId);
-        currentLocationLabel = bar
-          ? `Melted into ${bar.barCode}`
-          : 'Melted';
+        currentLocationLabel = bar ? `Melted into ${bar.barCode}` : 'Melted';
       } else if (item.status === 'IN_MELTING') {
         currentStatus = 'IN_MELTING';
         currentLocationLabel = itemBatch
@@ -344,7 +346,7 @@ export async function GET(req, { params }) {
       };
     });
 
-    // ---- Unified order timeline (dedupe by stage + timestamp + id) ----
+    // ---- Unified order timeline ----
     const eventKey = (e) =>
       [
         e.stage,
@@ -388,8 +390,10 @@ export async function GET(req, { params }) {
       order: {
         id: order.id,
         status: order.status,
-        orderType: order.orderType, 
-        staff: order.staff,         
+        orderType: order.orderType,
+        staff: order.staff,
+        // ✅ ADDED — required for the Documents section
+        estimateAgreementUrl: order.estimateAgreementUrl,
         purchaseAgreementUrl: order.purchaseAgreementUrl,
         purity: order.purity,
         weight: order.weight,

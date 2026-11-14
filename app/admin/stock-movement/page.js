@@ -22,8 +22,8 @@ import {
   DocumentArrowUpIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../context/AuthContext';
-import MovementHandoverSheet from '../../components/MovementHandoverSheet';
-import { downloadHandoverSheet } from '../../../lib/downloadHandoverSheet';
+import MovementHandoverSheet from '../../components/MovementTransferNote';
+import { downloadHandoverSheet } from '../../../lib/downloadTransferNote';
 
 export default function AdminStockMovementPage() {
   const { user } = useAuth();

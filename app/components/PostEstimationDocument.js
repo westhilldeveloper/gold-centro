@@ -353,9 +353,10 @@ const PostEstimationDocument = forwardRef(function PostEstimationDocument(
           Valuation Summary
         </p>
 
-        <table style={S.table}>
+         <table style={S.table}>
           <colgroup>
-            <col style={{ width: '28px' }} />
+            {/* ✅ UPDATED: slightly wider to fit "SL No" */}
+            <col style={{ width: '36px' }} />
             <col />
             <col style={{ width: '48px' }} />
             <col style={{ width: '68px' }} />
@@ -365,7 +366,8 @@ const PostEstimationDocument = forwardRef(function PostEstimationDocument(
           </colgroup>
           <thead>
             <tr>
-              <th style={{ ...S.th, textAlign: 'center' }}>#</th>
+              {/* ✅ UPDATED: changed '#' to 'SL No' */}
+              <th style={{ ...S.th, textAlign: 'center' }}>SL No</th>
               <th style={{ ...S.th, textAlign: 'left' }}>Item</th>
               <th style={{ ...S.th, textAlign: 'right' }}>Count</th>
               <th style={{ ...S.th, textAlign: 'right' }}>Gross (g)</th>

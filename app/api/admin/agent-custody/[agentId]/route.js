@@ -1,4 +1,4 @@
-// D:\gold-centro\app\api\admin\agent-custody\[agentId]\route.js
+// app/api/admin/agent-custody/[agentId]/route.js
 import { prisma } from '../../../../../lib/prisma';
 import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
@@ -7,6 +7,7 @@ export async function GET(req, { params }) {
   try {
     const { agentId } = await params;
 
+    // 1. Custody orders (bought, not yet deposited)
     const orders = await prisma.order.findMany({
       where: {
         agentId,
@@ -40,6 +41,34 @@ export async function GET(req, { params }) {
       },
     });
 
+    // 2. ✅ NEW: Carrier items (physically being transferred)
+    const carrierItems = await prisma.orderItem.findMany({
+      where: {
+        currentAgentId: agentId,
+        currentBranchId: null,
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        count: true,
+        purity: true,
+        grossWeight: true,
+        stoneWeight: true,
+        dustWeight: true,
+        netWeight: true,
+        imageUrls: true,
+        createdAt: true,
+        order: {
+          select: {
+            id: true,
+            purity: true,
+            customer: { select: { name: true } },
+          },
+        },
+      },
+    });
+
     const agent = await prisma.user.findUnique({
       where: { id: agentId },
       select: {
@@ -50,7 +79,12 @@ export async function GET(req, { params }) {
       },
     });
 
-    return NextResponse.json({ success: true, orders, agent });
+    return NextResponse.json({
+      success: true,
+      orders,
+      carrierItems, // ✅ NEW
+      agent,
+    });
   } catch (error) {
     return NextResponse.json(
       { success: false, error: error.message },

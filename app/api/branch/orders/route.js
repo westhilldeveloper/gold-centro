@@ -16,6 +16,7 @@ export async function GET(req) {
       );
     }
 
+    // ─────────── Pagination ───────────
     const rawPage = parseInt(searchParams.get('page') || '1', 10);
     const rawLimit = parseInt(
       searchParams.get('limit') || String(DEFAULT_PAGE_SIZE),
@@ -29,9 +30,28 @@ export async function GET(req) {
 
     const skip = (page - 1) * pageSize;
 
+    // ─────────── Search ───────────
+    const search = (searchParams.get('search') || '').trim();
+
+    // Build a single `where` object used by BOTH findMany and count
+    // so the total count matches the filtered results.
+    const where = { branchId };
+
+    if (search) {
+      where.OR = [
+        // Match order ID (supports partial, case-insensitive)
+        { id: { contains: search, mode: 'insensitive' } },
+        // Match customer name (partial, case-insensitive)
+        { customer: { name: { contains: search, mode: 'insensitive' } } },
+        // Bonus: match customer phone too — very useful in practice
+        { customer: { phone: { contains: search } } },
+      ];
+    }
+
+    // ─────────── Fetch ───────────
     const [orders, total] = await Promise.all([
       prisma.order.findMany({
-        where: { branchId },
+        where,
         orderBy: { createdAt: 'desc' },
         skip,
         take: pageSize,
@@ -54,7 +74,7 @@ export async function GET(req) {
           },
         },
       }),
-      prisma.order.count({ where: { branchId } }),
+      prisma.order.count({ where }), // ✅ uses the SAME where
     ]);
 
     const totalPages = Math.max(1, Math.ceil(total / pageSize));

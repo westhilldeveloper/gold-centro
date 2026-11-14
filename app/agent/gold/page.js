@@ -1,3 +1,4 @@
+// D:\gold-centro\app\agent\gold\page.js
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -14,6 +15,7 @@ import {
   DocumentTextIcon,
   MagnifyingGlassIcon,
   FunnelIcon,
+  TruckIcon,
   XMarkIcon as XIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../context/AuthContext';
@@ -33,6 +35,7 @@ export default function AgentGoldPage() {
   const [custodyOrders, setCustodyOrders] = useState([]);
   const [totals, setTotals] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [carrierItems, setCarrierItems] = useState([]);
 
   // Pagination + filters
   const [page, setPage] = useState(1);
@@ -92,6 +95,7 @@ export default function AgentGoldPage() {
 
         setDeposits(data.deposits || []);
         setCustodyOrders(data.custodyOrders || []);
+        setCarrierItems(data.carrierItems || []);
         setTotals(data.totals || null);
 
         const pg = data.pagination || {};
@@ -192,22 +196,29 @@ export default function AgentGoldPage() {
       </div>
 
       {/* Summary — always from full dataset */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <AgentStatCard
-          label="In Custody"
-          value={`${totals.custodyTotal.toFixed(2)}g`}
-          icon={CubeIcon}
-          color="purple"
-          subtitle={`${totals.custodyCount} orders pending deposit`}
-        />
-        <AgentStatCard
-          label="Deposited to Branch"
-          value={`${totals.depositedTotal.toFixed(2)}g`}
-          icon={CheckCircleIcon}
-          color="green"
-          subtitle={`${totals.depositCount} deposits total`}
-        />
-      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+  <AgentStatCard
+    label="In Custody"
+    value={`${totals.custodyTotal.toFixed(2)}g`}
+    icon={CubeIcon}
+    color="purple"
+    subtitle={`${totals.custodyCount} orders pending deposit`}
+  />
+  <AgentStatCard
+    label="Carrying for Delivery"
+    value={`${totals.carrierTotal.toFixed(2)}g`}
+    icon={TruckIcon}
+    color="orange"
+    subtitle={`${totals.carrierCount} item${totals.carrierCount !== 1 ? 's' : ''} in transit`}
+  />
+  <AgentStatCard
+    label="Deposited to Branch"
+    value={`${totals.depositedTotal.toFixed(2)}g`}
+    icon={CheckCircleIcon}
+    color="green"
+    subtitle={`${totals.depositCount} deposits total`}
+  />
+</div>
 
       {/* Custody hint */}
       {custodyOrders.length > 0 && (
@@ -228,6 +239,95 @@ export default function AgentGoldPage() {
         <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
           <CubeIcon className="w-5 h-5 text-purple-600" /> Currently in Custody
         </h2>
+        {carrierItems.length > 0 && (
+  <div className="bg-white rounded-2xl shadow-md p-6 border-l-4 border-orange-400">
+    <div className="flex items-center justify-between mb-4">
+      <h2 className="font-semibold text-lg flex items-center gap-2">
+        <TruckIcon className="w-5 h-5 text-orange-600" />
+        Carrying for Delivery
+        <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-medium">
+          {carrierItems.length} item{carrierItems.length !== 1 ? 's' : ''}
+        </span>
+      </h2>
+      <span className="text-lg font-bold text-orange-700">
+        {totals.carrierTotal.toFixed(2)}g
+      </span>
+    </div>
+
+    <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-4 text-xs text-orange-800">
+      <p className="font-semibold mb-1">📦 These items are in your possession</p>
+      <p>
+        You are physically carrying gold between branches. Deliver it to the
+        destination branch. Once their staff confirm receipt, these items will
+        be removed from this list.
+      </p>
+    </div>
+
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+      {Object.entries(totals.carrierByPurity).map(([purity, weight]) => (
+        <div
+          key={purity}
+          className="bg-orange-50 rounded-xl p-3 border border-orange-100"
+        >
+          <p className="text-xs text-orange-600 font-medium">{purity}</p>
+          <p className="text-lg font-bold text-orange-800">
+            {weight.toFixed(2)}g
+          </p>
+        </div>
+      ))}
+    </div>
+
+    <div className="divide-y divide-gray-100">
+      {carrierItems.map((it) => {
+        const firstImg =
+          Array.isArray(it.imageUrls) && it.imageUrls.length > 0
+            ? it.imageUrls[0]
+            : null;
+        return (
+          <div
+            key={it.id}
+            className="py-3 flex items-center gap-3"
+          >
+            <button
+              type="button"
+              onClick={() => firstImg && setPreviewImage(firstImg)}
+              disabled={!firstImg}
+              className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center disabled:cursor-default"
+            >
+              {firstImg ? (
+                <img
+                  src={firstImg}
+                  alt={it.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <CubeIcon className="w-5 h-5 text-gray-300" />
+              )}
+            </button>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">
+                {it.name}{' '}
+                <span className="text-xs text-gray-500">
+                  ×{it.count}
+                </span>
+              </p>
+              <p className="text-xs text-gray-500">
+                Order #{it.order?.id?.slice(-6)} •{' '}
+                {it.purity || it.order?.purity} •{' '}
+                {it.order?.customer?.name || '—'}
+              </p>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <p className="font-bold text-orange-700">
+                {(it.netWeight || 0).toFixed(2)}g
+              </p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+)}
         {custodyOrders.length === 0 ? (
           <p className="text-gray-400 text-sm text-center py-6">
             No gold currently held. All purchases have been deposited.

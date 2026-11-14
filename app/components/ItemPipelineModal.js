@@ -1,3 +1,4 @@
+// app/components/ItemPipelineModal.jsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,6 +14,8 @@ import {
   PhotoIcon,
   FireIcon,
   Square3Stack3DIcon,
+  ArrowDownTrayIcon,
+  UserCircleIcon,
 } from '@heroicons/react/24/outline';
 
 const ICONS = {
@@ -33,6 +36,18 @@ const COLORS = {
   purple: { bg: 'bg-purple-100', text: 'text-purple-700', ring: 'ring-purple-200', line: 'bg-purple-300' },
   red: { bg: 'bg-red-100', text: 'text-red-700', ring: 'ring-red-200', line: 'bg-red-300' },
   orange: { bg: 'bg-orange-100', text: 'text-orange-700', ring: 'ring-orange-200', line: 'bg-orange-300' },
+};
+
+// ✅ NEW: styling + label for current status
+const STATUS_CARD_STYLES = {
+  AT_BRANCH: { wrap: 'bg-green-50 border-green-200', title: 'text-green-800' },
+  IN_TRANSIT: { wrap: 'bg-yellow-50 border-yellow-200', title: 'text-yellow-800' },
+  WITH_AGENT: { wrap: 'bg-purple-50 border-purple-200', title: 'text-purple-800' },
+  WITH_AGENT_CARRIER: { wrap: 'bg-orange-50 border-orange-200', title: 'text-orange-800' },
+  IN_MELTING: { wrap: 'bg-orange-50 border-orange-200', title: 'text-orange-800' },
+  MELTED: { wrap: 'bg-gray-50 border-gray-200', title: 'text-gray-800' },
+  IN_PROGRESS: { wrap: 'bg-blue-50 border-blue-200', title: 'text-blue-800' },
+  UNKNOWN: { wrap: 'bg-gray-50 border-gray-200', title: 'text-gray-800' },
 };
 
 export default function ItemPipelineModal({ itemId, onClose }) {
@@ -196,28 +211,28 @@ export default function ItemPipelineModal({ itemId, onClose }) {
                     </div>
                   </div>
 
-                  {/* Current status */}
-                  <div
-                    className={`rounded-2xl p-4 border-2 ${
-                      data.currentStatus === 'AT_BRANCH'
-                        ? 'bg-green-50 border-green-200'
-                        : data.currentStatus === 'IN_TRANSIT'
-                        ? 'bg-yellow-50 border-yellow-200'
-                        : data.currentStatus === 'WITH_AGENT'
-                        ? 'bg-purple-50 border-purple-200'
-                        : data.currentStatus === 'MELTED' ||
-                          data.currentStatus === 'IN_MELTING'
-                        ? 'bg-orange-50 border-orange-200'
-                        : 'bg-blue-50 border-blue-200'
-                    }`}
-                  >
-                    <p className="text-xs uppercase tracking-wider font-semibold text-gray-500">
-                      Current Status
-                    </p>
-                    <p className="text-lg font-bold text-gray-900 mt-1">
-                      {data.currentLocationLabel}
-                    </p>
-                  </div>
+                  {/* ✅ Current status — with carrier support */}
+                  {(() => {
+                    const cfg =
+                      STATUS_CARD_STYLES[data.currentStatus] ||
+                      STATUS_CARD_STYLES.UNKNOWN;
+                    return (
+                      <div className={`rounded-2xl p-4 border-2 ${cfg.wrap}`}>
+                        <p className="text-xs uppercase tracking-wider font-semibold text-gray-500">
+                          Current Status
+                        </p>
+                        <p className={`text-lg font-bold mt-1 ${cfg.title}`}>
+                          {data.currentLocationLabel}
+                        </p>
+                        {data.currentStatus === 'WITH_AGENT_CARRIER' &&
+                          data.currentCarrierAgent && (
+                            <p className="text-xs text-orange-700 mt-1">
+                              📞 {data.currentCarrierAgent.phone || '—'}
+                            </p>
+                          )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Timeline */}
                   <div>
@@ -263,10 +278,18 @@ export default function ItemPipelineModal({ itemId, onClose }) {
                                 <Icon className="w-5 h-5" />
                               </div>
 
-                              <div className="flex-1 pt-1.5">
-                                <p className="font-semibold text-gray-900 text-sm">
-                                  {stage.label}
-                                </p>
+                              <div className="flex-1 pt-1.5 min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="font-semibold text-gray-900 text-sm">
+                                    {stage.label}
+                                  </p>
+                                  {stage.siblingCount > 0 && (
+                                    <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
+                                      +{stage.siblingCount} sibling item
+                                      {stage.siblingCount > 1 ? 's' : ''}
+                                    </span>
+                                  )}
+                                </div>
                                 {stage.description && (
                                   <p className="text-xs text-gray-600 mt-0.5">
                                     {stage.description}
@@ -290,6 +313,37 @@ export default function ItemPipelineModal({ itemId, onClose }) {
                                     <span>👤 {stage.actor.name}</span>
                                   )}
                                 </div>
+
+                                {/* ✅ NEW: Note links on SENT / RECEIVED events */}
+                                {(stage.transferNoteUrl ||
+                                  stage.receivingNoteUrl) && (
+                                  <div className="flex flex-wrap gap-2 mt-2">
+                                    {stage.transferNoteUrl && (
+                                      <a
+                                        href={stage.transferNoteUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-[11px] bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 px-2 py-1 rounded-lg font-medium transition"
+                                      >
+                                        <DocumentTextIcon className="w-3 h-3" />
+                                        Transfer Note
+                                        <ArrowDownTrayIcon className="w-3 h-3" />
+                                      </a>
+                                    )}
+                                    {stage.receivingNoteUrl && (
+                                      <a
+                                        href={stage.receivingNoteUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-[11px] bg-green-50 hover:bg-green-100 border border-green-200 text-green-800 px-2 py-1 rounded-lg font-medium transition"
+                                      >
+                                        <DocumentTextIcon className="w-3 h-3" />
+                                        Receiving Note
+                                        <ArrowDownTrayIcon className="w-3 h-3" />
+                                      </a>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </motion.div>
                           );

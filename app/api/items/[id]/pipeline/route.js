@@ -120,13 +120,21 @@ export async function GET(req, { params }) {
     }
 
     let currentBranch = null;
-    if (item.currentBranchId) {
-      currentBranch = await prisma.branch.findUnique({
-        where: { id: item.currentBranchId },
-        select: { id: true, name: true, code: true },
-      });
-    }
+if (item.currentBranchId) {
+  currentBranch = await prisma.branch.findUnique({
+    where: { id: item.currentBranchId },
+    select: { id: true, name: true, code: true },
+  });
+}
 
+// ✅ NEW: fetch carrier agent if this item is being carried
+let currentCarrierAgent = null;
+if (item.currentAgentId) {
+  currentCarrierAgent = await prisma.user.findUnique({
+    where: { id: item.currentAgentId },
+    select: { id: true, name: true, phone: true },
+  });
+}
     // ---- Status flags (compute before using) ----
     const inTransit = movements.find((m) => m.status === 'IN_TRANSIT');
     const inMelting =
@@ -201,6 +209,21 @@ export async function GET(req, { params }) {
       });
     }
 
+    // 3.5 ✅ NEW: Agent carrier event (item picked up by agent)
+if (currentCarrierAgent && currentCarrierAgent.id !== order.agentId) {
+  // Only add if it's a different agent than the buyer — this is a
+  // specific handoff event during transit
+  timeline.push({
+    stage: 'CARRIER_PICKUP',
+    label: `Carried by ${currentCarrierAgent.name}`,
+    description: `Agent is delivering this item to another branch`,
+    timestamp: item.updatedAt || new Date(),
+    actor: { name: currentCarrierAgent.name, role: 'CARRIER' },
+    location: null,
+    icon: 'truck',
+    color: 'orange',
+  });
+}
     // 4. Movements — SENT + RECEIVED/IN_TRANSIT/CANCELLED
     movements.forEach((m) => {
       const fromName = m.fromBranch?.name || 'External';
@@ -227,40 +250,45 @@ export async function GET(req, { params }) {
         );
       }
 
-      timeline.push({
-        stage: 'SENT',
-        label: `Sent from ${fromName}`,
-        description: descParts.join(' • '),
-        timestamp: m.createdAt,
-        actor: m.carrierName
-          ? { name: m.carrierName, role: m.carrierType || 'CARRIER' }
-          : m.handedOverByName
-          ? { name: m.handedOverByName, role: 'HANDOVER' }
-          : null,
-        location: m.fromBranch,
-        icon: 'truck',
-        color: 'yellow',
-        movementId: m.id,
-        handoverSheetUrl: m.handoverSheetUrl || null,
-        siblingCount: otherItemsInMovement,
-      });
+      // Inside `movements.forEach((m) => { ... })`
+timeline.push({
+  stage: 'SENT',
+  label: `Sent from ${fromName}`,
+  description: descParts.join(' • '),
+  timestamp: m.createdAt,
+  actor: m.carrierName
+    ? { name: m.carrierName, role: m.carrierType || 'CARRIER' }
+    : m.handedOverByName
+    ? { name: m.handedOverByName, role: 'HANDOVER' }
+    : null,
+  location: m.fromBranch,
+  icon: 'truck',
+  color: 'yellow',
+  movementId: m.id,
+  // ✅ CHANGED: from handoverSheetUrl → transferNoteUrl
+  transferNoteUrl: m.transferNoteUrl || null,
+  siblingCount: otherItemsInMovement,
+});
 
       if (m.status === 'RECEIVED' && m.receivedAt) {
-        timeline.push({
-          stage: 'RECEIVED',
-          label: `Received at ${toName}`,
-          description: m.receivedByName
-            ? `Received by ${m.receivedByName} from ${fromName}`
-            : `Confirmed from ${fromName}`,
-          timestamp: m.receivedAt,
-          actor: m.receivedByName
-            ? { name: m.receivedByName, role: 'RECEIVER' }
-            : null,
-          location: m.toBranch,
-          icon: 'check',
-          color: 'green',
-          movementId: m.id,
-        });
+  timeline.push({
+    stage: 'RECEIVED',
+    label: `Received at ${toName}`,
+    description: m.receivedByName
+      ? `Received by ${m.receivedByName} from ${fromName}`
+      : `Confirmed from ${fromName}`,
+    timestamp: m.receivedAt,
+    actor: m.receivedByName
+      ? { name: m.receivedByName, role: 'RECEIVER' }
+      : null,
+    location: m.toBranch,
+    icon: 'check',
+    color: 'green',
+    movementId: m.id,
+    // ✅ NEW: receiving note URL
+    receivingNoteUrl: m.receivingNoteUrl || null,
+  });
+
       } else if (m.status === 'CANCELLED') {
         timeline.push({
           stage: 'CANCELLED',
@@ -407,7 +435,21 @@ export async function GET(req, { params }) {
         icon: 'building',
         color: 'green',
       };
-    } else if (inTransit) {
+      
+    } 
+    else if (currentCarrierAgent) {
+  currentStage = {
+    stage: 'CURRENT_CARRIER',
+    label: `Being carried by ${currentCarrierAgent.name}`,
+    description: 'In transit between branches',
+    timestamp: new Date(),
+    actor: { name: currentCarrierAgent.name, role: 'CARRIER' },
+    location: null,
+    icon: 'truck',
+    color: 'orange',
+  };
+}
+    else if (inTransit) {
       currentStage = {
         stage: 'CURRENT_IN_TRANSIT',
         label: `In transit to ${
@@ -432,39 +474,43 @@ export async function GET(req, { params }) {
     // Current status label
     // =========================================================
     let currentStatus = 'UNKNOWN';
-    let currentLocationLabel = 'Unknown';
+let currentLocationLabel = 'Unknown';
 
-    if (melted) {
-      currentStatus = 'MELTED';
-      const barList = batchBars
-        .map((b) => `${b.barCode} (${b.weight.toFixed(2)}g)`)
-        .join(', ');
-      currentLocationLabel = barList
-        ? `Melted into bars: ${barList}`
-        : `Melted (${meltingBatch?.batchCode || 'batch'})`;
-    } else if (inMelting) {
-      currentStatus = 'IN_MELTING';
-      currentLocationLabel = `In melting (${
-        meltingBatch.batchCode
-      }) at ${meltingBatch.branch?.name || 'branch'}`;
-    } else if (meltingCancelled && item.currentBranchId) {
-      currentStatus = 'AT_BRANCH';
-      currentLocationLabel = `At ${currentBranch?.name || 'branch'}`;
-    } else if (inTransit) {
-      currentStatus = 'IN_TRANSIT';
-      currentLocationLabel = `In transit to ${
-        inTransit.toBranch?.name || 'destination'
-      }`;
-    } else if (currentBranch) {
-      currentStatus = 'AT_BRANCH';
-      currentLocationLabel = `At ${currentBranch.name}`;
-    } else if (order.status === 'COMPLETED' && !order.depositedToBranch) {
-      currentStatus = 'WITH_AGENT';
-      currentLocationLabel = `With agent ${order.agent?.name || ''}`;
-    } else {
-      currentStatus = 'IN_PROGRESS';
-      currentLocationLabel = 'Order in progress';
-    }
+if (melted) {
+  currentStatus = 'MELTED';
+  const barList = batchBars
+    .map((b) => `${b.barCode} (${b.weight.toFixed(2)}g)`)
+    .join(', ');
+  currentLocationLabel = barList
+    ? `Melted into bars: ${barList}`
+    : `Melted (${meltingBatch?.batchCode || 'batch'})`;
+} else if (inMelting) {
+  currentStatus = 'IN_MELTING';
+  currentLocationLabel = `In melting (${meltingBatch.batchCode}) at ${
+    meltingBatch.branch?.name || 'branch'
+  }`;
+} else if (meltingCancelled && item.currentBranchId) {
+  currentStatus = 'AT_BRANCH';
+  currentLocationLabel = `At ${currentBranch?.name || 'branch'}`;
+} else if (inTransit) {
+  currentStatus = 'IN_TRANSIT';
+  currentLocationLabel = `In transit to ${
+    inTransit.toBranch?.name || 'destination'
+  }`;
+} else if (currentBranch) {
+  currentStatus = 'AT_BRANCH';
+  currentLocationLabel = `At ${currentBranch.name}`;
+} else if (currentCarrierAgent) {
+  // ✅ NEW: being carried by an agent
+  currentStatus = 'WITH_AGENT_CARRIER';
+  currentLocationLabel = `Being carried by ${currentCarrierAgent.name}`;
+} else if (order.status === 'COMPLETED' && !order.depositedToBranch) {
+  currentStatus = 'WITH_AGENT';
+  currentLocationLabel = `With agent ${order.agent?.name || ''}`;
+} else {
+  currentStatus = 'IN_PROGRESS';
+  currentLocationLabel = 'Order in progress';
+}
 
     return NextResponse.json({
       success: true,
@@ -487,10 +533,12 @@ export async function GET(req, { params }) {
         createdAt: item.createdAt,
         itemStatus: item.status,
         currentBranchId: item.currentBranchId,
+        currentAgentId: item.currentAgentId, 
       },
       currentStatus,
       currentLocationLabel,
       currentBranch,
+      currentCarrierAgent,
       meltingBatch: meltingBatch
         ? {
             id: meltingBatch.id,

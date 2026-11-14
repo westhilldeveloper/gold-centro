@@ -61,7 +61,6 @@ const BranchPurchaseAgreement = forwardRef(function BranchPurchaseAgreement({ or
           <p style={{ margin: '0 0 6px', fontSize: '11px', fontWeight: 700 }}>Processed By (Buyer)</p>
           <p style={{ margin: '2px 0' }}><strong>Staff Name:</strong> {staff?.name || '—'}</p>
           <p style={{ margin: '2px 0' }}><strong>Staff Phone:</strong> {staff?.phone || '—'}</p>
-          <p style={{ margin: '2px 0' }}><strong>Payment Mode:</strong> {order.paymentMode || 'CASH'}</p>
         </div>
       </div>
 
@@ -73,7 +72,7 @@ const BranchPurchaseAgreement = forwardRef(function BranchPurchaseAgreement({ or
             <tr>
               <th style={{ ...S.th, textAlign: 'left' }}>Item</th>
               <th style={{ ...S.th, textAlign: 'right' }}>Pre-Gross</th>
-              <th style={{ ...S.th, textAlign: 'right' }}>Pre-Purity</th>
+              {/* REMOVED: Pre-Purity Column */}
               <th style={{ ...S.th, textAlign: 'right' }}>Post-Gross</th>
               <th style={{ ...S.th, textAlign: 'right' }}>Stone</th>
               <th style={{ ...S.th, textAlign: 'right' }}>Dust</th>
@@ -87,7 +86,7 @@ const BranchPurchaseAgreement = forwardRef(function BranchPurchaseAgreement({ or
               <tr key={idx}>
                 <td style={S.td}>{it.name} <span style={{fontSize:'9px', color:'#6b7280'}}>({it.count} pcs)</span></td>
                 <td style={{ ...S.td, textAlign: 'right' }}>{num(it.preEstimationGrossWeight).toFixed(2)}</td>
-                <td style={{ ...S.td, textAlign: 'right' }}>{it.preEstimationPurity || '—'}</td>
+                {/* REMOVED: {it.preEstimationPurity || '—'} */}
                 <td style={{ ...S.td, textAlign: 'right' }}>{num(it.grossWeight).toFixed(2)}</td>
                 <td style={{ ...S.td, textAlign: 'right' }}>{num(it.stoneWeight).toFixed(2)}</td>
                 <td style={{ ...S.td, textAlign: 'right' }}>{num(it.dustWeight).toFixed(2)}</td>
@@ -99,7 +98,8 @@ const BranchPurchaseAgreement = forwardRef(function BranchPurchaseAgreement({ or
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan="3" style={{ ...S.td, textAlign: 'right', fontWeight: 700 }}>TOTAL</td>
+              {/* Adjusted colSpan from 3 to 2 */}
+              <td colSpan="2" style={{ ...S.td, textAlign: 'right', fontWeight: 700 }}>TOTAL</td>
               <td style={{ ...S.td, textAlign: 'right', fontWeight: 700 }}>{totalGross.toFixed(2)}</td>
               <td colSpan="2" style={S.td}></td>
               <td style={{ ...S.td, textAlign: 'right', fontWeight: 700 }}>{totalNet.toFixed(2)}</td>
@@ -107,7 +107,8 @@ const BranchPurchaseAgreement = forwardRef(function BranchPurchaseAgreement({ or
               <td style={{ ...S.td, textAlign: 'right', fontWeight: 700 }}>₹ {finalOffer.toFixed(2)}</td>
             </tr>
             <tr>
-              <td colSpan="8" style={{ ...S.td, textAlign: 'right', fontWeight: 700, backgroundColor: '#fef3c7' }}>NET PAYABLE TO CUSTOMER</td>
+              {/* Adjusted colSpan from 8 to 7 */}
+              <td colSpan="7" style={{ ...S.td, textAlign: 'right', fontWeight: 700, backgroundColor: '#fef3c7' }}>NET PAYABLE TO CUSTOMER</td>
               <td style={{ ...S.td, textAlign: 'right', fontWeight: 700, backgroundColor: '#fef3c7' }}>₹ {finalOffer.toFixed(2)}</td>
             </tr>
           </tfoot>
@@ -116,11 +117,17 @@ const BranchPurchaseAgreement = forwardRef(function BranchPurchaseAgreement({ or
 
       {/* DECLARATION */}
       <div style={{ ...S.card, ...S.section, backgroundColor: '#f9fafb' }}>
-        <p style={{ margin: '0 0 6px', fontSize: '11px', fontWeight: 700 }}>Customer Declaration</p>
+        <p style={{ margin: '0 0 6px', fontSize: '11px', fontWeight: 700 }}>Customer Declaration & Agreement</p>
         <ol style={{ margin: 0, paddingLeft: '16px', fontSize: '10px', lineHeight: 1.4 }}>
           <li>I am the sole and lawful owner of the gold described above.</li>
           <li>The gold is not stolen, illegally acquired, or part of any dispute.</li>
-          <li>I have received the agreed amount of ₹ {finalOffer.toFixed(2)} via {order.paymentMode || 'CASH'}.</li>
+          
+          {/* UPDATED CLAUSE: Explicitly mentioning melting/burning */}
+          <li>
+            <strong>I understand and agree that the weights mentioned above are after initial cleaning. The gold will undergo further melting (burning) for final processing, and the final weight and purity may vary slightly. I agree to accept the final valuation based on the burnt weight.</strong>
+          </li>
+          
+          <li>I have received the agreed estimated amount of ₹ {finalOffer.toFixed(2)} via {order.paymentMode || 'CASH'}.</li>
           <li>I agree to the final post-cleaning purity and weight assessed by Gold Centro.</li>
           <li>I indemnify Gold Centro against any future third-party claims regarding this gold.</li>
         </ol>

@@ -18,6 +18,10 @@ import {
   CheckCircleIcon,
   ClockIcon,
   ArrowDownTrayIcon,
+  MagnifyingGlassIcon,
+  BuildingLibraryIcon,
+  CreditCardIcon,
+  BanknotesIcon,
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../context/AuthContext';
 import ItemImageCarousel, {
@@ -39,10 +43,22 @@ const STATUS_STYLES = {
   OTP_VERIFIED: 'bg-emerald-100 text-emerald-700',
   PENDING: 'bg-amber-100 text-amber-700',
   PENDING_AGREEMENT: 'bg-amber-100 text-amber-700',
+  PENDING_ESTIMATE_AGREEMENT: 'bg-amber-100 text-amber-700',
+  PENDING_POST_ESTIMATION: 'bg-orange-100 text-orange-700',
+  PENDING_PURCHASE_AGREEMENT: 'bg-purple-100 text-purple-700',
+  PENDING_PAYMENT: 'bg-blue-100 text-blue-700',
+  CANCELLED: 'bg-red-100 text-red-700',
 };
 
 const statusLabel = (s) =>
   (s || 'UNKNOWN').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+const PAYMENT_ICONS = {
+  CASH: BanknotesIcon,
+  BANK_TRANSFER: BuildingLibraryIcon,
+  UPI: CreditCardIcon,
+  CHEQUE: DocumentTextIcon,
+};
 
 export default function BranchOrders() {
   const { user } = useAuth();
@@ -54,6 +70,10 @@ export default function BranchOrders() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
+  // Search
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
   // Preview + detail
   const [previewImage, setPreviewImage] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -61,17 +81,32 @@ export default function BranchOrders() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [expandedItems, setExpandedItems] = useState(true);
 
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setPage(1); // Reset to first page on new search
+    }, 400);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
   // ---------- Load list ----------
   const loadPage = useCallback(
     async (p = 1) => {
       if (!user?.branchId) return;
       setLoading(true);
       try {
-        const res = await fetch(
-          `/api/branch/orders?branchId=${user.branchId}&page=${p}&limit=${PAGE_SIZE}`
-        );
+        const params = new URLSearchParams({
+          branchId: user.branchId,
+          page: p,
+          limit: PAGE_SIZE,
+        });
+        if (debouncedSearch) params.append('search', debouncedSearch);
+
+        const res = await fetch(`/api/branch/orders?${params.toString()}`);
         const data = await res.json();
         if (!data.success) throw new Error(data.error);
+        
         setOrders(data.orders || []);
         const pg = data.pagination || {};
         setPage(pg.page || 1);
@@ -83,7 +118,7 @@ export default function BranchOrders() {
         setLoading(false);
       }
     },
-    [user?.branchId]
+    [user?.branchId, debouncedSearch]
   );
 
   useEffect(() => {
@@ -185,6 +220,20 @@ export default function BranchOrders() {
         )}
       </div>
 
+      {/* Search Bar */}
+      <div className="bg-white rounded-2xl shadow-md p-4">
+        <div className="relative">
+          <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by customer name or order ID..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-yellow-500 outline-none transition"
+          />
+        </div>
+      </div>
+
       {/* List */}
       {loading && orders.length === 0 ? (
         <div className="flex items-center justify-center h-64">
@@ -192,7 +241,7 @@ export default function BranchOrders() {
         </div>
       ) : orders.length === 0 ? (
         <div className="bg-white rounded-2xl shadow-md p-12 text-center text-gray-500">
-          No orders yet.
+          {debouncedSearch ? 'No orders found matching your search.' : 'No orders yet.'}
         </div>
       ) : (
         <div className="bg-white rounded-2xl shadow-md divide-y divide-gray-100 overflow-hidden">
@@ -455,14 +504,14 @@ export default function BranchOrders() {
                       >
                         {statusLabel(orderDetail.status)}
                       </span>
-                      {orderDetail.paymentMode && (
-                        <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-medium">
-                          {orderDetail.paymentMode}
-                        </span>
-                      )}
                       {orderDetail.isPledged && (
                         <span className="text-xs bg-rose-100 text-rose-700 px-3 py-1 rounded-full font-medium">
                           🔒 Pledged
+                        </span>
+                      )}
+                      {orderDetail.orderType === 'BRANCH_DIRECT' && orderDetail.cancelledAt && (
+                        <span className="text-xs bg-red-100 text-red-700 px-3 py-1 rounded-full font-medium">
+                          Cancelled: {orderDetail.cancelReason || 'No reason'}
                         </span>
                       )}
                     </div>
@@ -549,6 +598,83 @@ export default function BranchOrders() {
                       )}
                     </div>
 
+                    {/* PAYMENT DETAILS (Direct Purchases) */}
+                    {orderDetail.orderType === 'BRANCH_DIRECT' && (orderDetail.paymentMode || orderDetail.paymentDetails) && (
+                      <div className="bg-gray-50 rounded-xl p-3 border border-gray-100 space-y-2">
+                        <p className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                          <CurrencyRupeeIcon className="w-4 h-4 text-gray-500" /> Payment Details
+                        </p>
+                        
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Mode</span>
+                          <span className="font-semibold flex items-center gap-1 text-gray-900">
+                            {orderDetail.paymentMode}
+                          </span>
+                        </div>
+
+                        {orderDetail.paymentReference && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-500">Reference</span>
+                            <span className="font-mono text-gray-800 bg-white px-2 py-0.5 rounded border text-xs">{orderDetail.paymentReference}</span>
+                          </div>
+                        )}
+
+                        {/* Dynamic details block */}
+                        {orderDetail.paymentDetails && (
+                          <div className="mt-2 pt-2 border-t border-gray-200 space-y-1">
+                            {Object.entries(orderDetail.paymentDetails).map(([k, v]) => (
+                              <div key={k} className="flex justify-between text-xs">
+                                <span className="text-gray-400 capitalize">{k.replace(/([A-Z])/g, ' $1')}</span>
+                                <span className="font-medium text-gray-700">{v}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* DOCUMENTS (Direct Purchases) */}
+                    {orderDetail.orderType === 'BRANCH_DIRECT' && (
+                      <div className="bg-white rounded-xl p-3 border border-gray-200">
+                        <p className="text-xs font-semibold text-gray-700 mb-3">Documents</p>
+                        <div className="flex flex-col gap-2">
+                          {/* Estimate Agreement */}
+                          {orderDetail.estimateAgreementUrl ? (
+                            <a
+                              href={orderDetail.estimateAgreementUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 text-xs bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg text-amber-800 hover:bg-amber-100 transition font-medium"
+                            >
+                              <DocumentTextIcon className="w-4 h-4" /> 1. Signed Estimate Agreement
+                              <ArrowDownTrayIcon className="w-3.5 h-3.5 ml-auto" />
+                            </a>
+                          ) : (
+                            <span className="text-xs bg-gray-50 border border-gray-100 px-3 py-2 rounded-lg text-gray-400 italic">
+                              1. Estimate Agreement not uploaded
+                            </span>
+                          )}
+
+                          {/* Final Purchase Agreement */}
+                          {orderDetail.purchaseAgreementUrl ? (
+                            <a
+                              href={orderDetail.purchaseAgreementUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 text-xs bg-blue-50 border border-blue-200 px-3 py-2 rounded-lg text-blue-800 hover:bg-blue-100 transition font-medium"
+                            >
+                              <DocumentTextIcon className="w-4 h-4" /> 2. Signed Final Purchase Agreement
+                              <ArrowDownTrayIcon className="w-3.5 h-3.5 ml-auto" />
+                            </a>
+                          ) : (
+                            <span className="text-xs bg-gray-50 border border-gray-100 px-3 py-2 rounded-lg text-gray-400 italic">
+                              2. Final Purchase Agreement not uploaded
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {orderDetail.comment && (
                       <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
                         <p className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold mb-1">
@@ -557,26 +683,6 @@ export default function BranchOrders() {
                         <p className="text-sm text-gray-800 whitespace-pre-line">
                           {orderDetail.comment}
                         </p>
-                      </div>
-                    )}
-
-                    {/* Documents (Direct Purchase Agreement) */}
-                    {orderDetail.orderType === 'BRANCH_DIRECT' && (
-                      <div className="bg-white rounded-xl p-3 border border-gray-200">
-                        <p className="text-xs font-semibold text-gray-700 mb-2">Documents</p>
-                        {orderDetail.purchaseAgreementUrl ? (
-                          <a
-                            href={orderDetail.purchaseAgreementUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 text-xs bg-blue-50 border border-blue-200 px-3 py-2 rounded-xl text-blue-800 hover:bg-blue-100 transition font-medium"
-                          >
-                            <DocumentTextIcon className="w-4 h-4" /> Signed Purchase Agreement
-                            <ArrowDownTrayIcon className="w-3.5 h-3.5" />
-                          </a>
-                        ) : (
-                          <span className="text-xs text-amber-600 font-medium">⚠ Agreement not uploaded yet.</span>
-                        )}
                       </div>
                     )}
 
@@ -702,8 +808,7 @@ export default function BranchOrders() {
                                       {/* Pre-Estimation Badge (Direct Purchase only) */}
                                       {item.preEstimationGrossWeight != null && (
                                         <div className="mt-1.5 inline-block text-[10px] bg-orange-50 text-orange-800 px-2 py-1 rounded border border-orange-100">
-                                          Pre-Est: <strong>{item.preEstimationGrossWeight.toFixed(2)}g</strong>
-                                          {item.preEstimationPurity && ` (${item.preEstimationPurity})`}
+                                          Pre-Est: <strong>{parseFloat(item.preEstimationGrossWeight).toFixed(2)}g</strong>
                                         </div>
                                       )}
                                     </div>

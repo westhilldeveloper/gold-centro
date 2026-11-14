@@ -4,14 +4,12 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req) {
   try {
-    const body = await req.json();
-    const { branchId, staffId, customer, items, finalPrice } = body;
+    const { branchId, staffId, customer, items } = await req.json();
 
     if (!branchId || !staffId || !customer || !items?.length) {
       return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
     }
 
-    // 1. Find or Create Customer
     let customerRecord = await prisma.user.findUnique({ where: { phone: customer.phone } });
     if (!customerRecord) {
       customerRecord = await prisma.user.create({
@@ -24,36 +22,29 @@ export async function POST(req) {
       });
     }
 
-    const totalNet = items.reduce((s, i) => s + parseFloat(i.netWeight), 0);
+    const totalPreGross = items.reduce((s, i) => s + parseFloat(i.preEstimationGrossWeight || 0), 0);
 
-    // 2. Create Order (Status PENDING_AGREEMENT, NO cash deduction)
     const order = await prisma.order.create({
       data: {
         customerId: customerRecord.id,
         branchId,
         staffId,
         orderType: 'BRANCH_DIRECT',
-        status: 'PENDING_AGREEMENT',
-        weight: totalNet,
+        status: 'PENDING_ESTIMATE_AGREEMENT',
+        weight: totalPreGross, // Temporarily store pre-gross
         purity: 'MIXED',
-        estimatedTotal: finalPrice,
-        finalPrice,
+        estimatedTotal: 0,
+        finalPrice: 0,
         depositedToBranch: false,
         items: {
           create: items.map(it => ({
             name: it.name,
             count: parseInt(it.count) || 1,
             purity: it.purity,
-            grossWeight: parseFloat(it.grossWeight),
-            stoneWeight: parseFloat(it.stoneWeight || 0),
-            dustWeight: parseFloat(it.dustWeight || 0),
-            netWeight: parseFloat(it.netWeight),
-            ratePerGram: parseFloat(it.ratePerGram),
-            itemPrice: parseFloat(it.itemPrice),
             imageUrls: it.imageUrls || [],
-            preEstimationGrossWeight: it.preEstimationGrossWeight ? parseFloat(it.preEstimationGrossWeight) : null,
-            preEstimationNetWeight: it.preEstimationNetWeight ? parseFloat(it.preEstimationNetWeight) : null,
-            preEstimationPurity: it.preEstimationPurity || null,
+            preEstimationGrossWeight: parseFloat(it.preEstimationGrossWeight) || 0,
+            // Post-estimation fields are null/zero for now
+            grossWeight: 0, stoneWeight: 0, dustWeight: 0, netWeight: 0,  ratePerGram: parseFloat(it.ratePerGram) || 0, itemPrice: parseFloat(it.itemPrice) || 0,
             status: 'PENDING',
           }))
         }
@@ -62,7 +53,6 @@ export async function POST(req) {
 
     return NextResponse.json({ success: true, order });
   } catch (error) {
-    console.error('Create direct purchase error:', error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

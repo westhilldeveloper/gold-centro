@@ -61,7 +61,7 @@ export default function AgreementPage() {
     const d = await res.json();
     if (!res.ok) throw new Error(d.error);
     
-    toast.success('Agreement uploaded! Proceeding to payment.', { id: t });
+    toast.success('Final Agreement uploaded! Proceeding to Payment.', { id: t });
     
     // NEW: Redirect to pay page
     router.push(`/branch/direct-purchase/${id}/pay`);

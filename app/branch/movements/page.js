@@ -1,11 +1,11 @@
-// D:\gold-centro\app\branch\movements\page.js
+// app/branch/movements/page.js
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
-import MovementHandoverSheet from '../../components/MovementHandoverSheet';
-import { downloadHandoverSheet } from '../../../lib/downloadHandoverSheet';
+import MovementTransferNote from '../../components/MovementTransferNote';
+import { downloadTransferNote } from '../../../lib/downloadTransferNote';
 import {
   ArrowsRightLeftIcon,
   TruckIcon,
@@ -30,10 +30,10 @@ export default function BranchMovements() {
   const [modalOpen, setModalOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
-  const [sheetData, setSheetData] = useState(null);
-const [downloadingSheet, setDownloadingSheet] = useState(null);
-const [uploadingSheet, setUploadingSheet] = useState({});
-const sheetRef = useRef(null);
+  const [sheetData, setSheetData] = useState(null); // { movement, items, noteType }
+  const [downloadingSheet, setDownloadingSheet] = useState(null);
+  const [uploadingSheet, setUploadingSheet] = useState({}); // { [`${id}-${type}`]: bool }
+  const sheetRef = useRef(null);
 
   const load = async () => {
     if (!user?.branchId) return;
@@ -45,73 +45,67 @@ const sheetRef = useRef(null);
       const movData = await movRes.json();
       const brData = await brRes.json();
       if (movData.success) setMovements(movData.movements);
-      if (brData.success)
-        setBranches(brData.branches.filter((b) => b.id !== user.branchId));
+      if (brData.success) setBranches(brData.branches.filter((b) => b.id !== user.branchId));
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    load();
-  }, [user]);
+  useEffect(() => { load(); }, [user]);
 
+  // Download trigger
   useEffect(() => {
-  if (!sheetData) return;
-  const run = async () => {
-    await new Promise((r) => requestAnimationFrame(r));
-    if (!sheetRef.current) return;
+    if (!sheetData) return;
+    const run = async () => {
+      await new Promise((r) => requestAnimationFrame(r));
+      if (!sheetRef.current) return;
+      try {
+        await downloadTransferNote(sheetRef.current, sheetData.movement, sheetData.noteType);
+        toast.success(`📄 ${sheetData.noteType === 'transfer' ? 'Transfer' : 'Receiving'} note downloaded`);
+      } catch (err) {
+        toast.error('Download failed: ' + err.message);
+      } finally {
+        setSheetData(null);
+        setDownloadingSheet(null);
+      }
+    };
+    run();
+  }, [sheetData]);
+
+  const handleDownloadNote = async (movement, noteType) => {
+    setDownloadingSheet(`${movement.id}-${noteType}`);
     try {
-      await downloadHandoverSheet(sheetRef.current, sheetData.movement);
-      toast.success('📄 Handover sheet downloaded');
+      const res = await fetch(`/api/branch/movements/${movement.id}/items`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      setSheetData({ movement, items: data.items || [], noteType });
     } catch (err) {
-      toast.error('Download failed: ' + err.message);
-    } finally {
-      setSheetData(null);
+      toast.error('Failed to prepare note: ' + err.message);
       setDownloadingSheet(null);
     }
   };
-  run();
-}, [sheetData]);
 
-const handleDownloadSheet = async (movement) => {
-  setDownloadingSheet(movement.id);
-  try {
-    const res = await fetch(`/api/branch/movements/${movement.id}/items`);
-    const data = await res.json();
-    if (!data.success) throw new Error(data.error);
-    setSheetData({ movement, items: data.items || [] });
-  } catch (err) {
-    toast.error('Failed to prepare sheet: ' + err.message);
-    setDownloadingSheet(null);
-  }
-};
+  const uploadNote = async (movementId, noteType, file) => {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) return toast.error('File too large. Max 10 MB.');
 
-const handleUploadSheet = async (movementId, file) => {
-  if (!file) return;
-  if (file.size > 10 * 1024 * 1024) {
-    toast.error('File too large. Max 10 MB.');
-    return;
-  }
-  setUploadingSheet((p) => ({ ...p, [movementId]: true }));
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append(
-      'upload_preset',
-      process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
-    );
-    const cloudRes = await fetch(
-      `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/auto/upload`,
-      { method: 'POST', body: formData }
-    );
-    const cloudData = await cloudRes.json();
-    if (!cloudRes.ok) {
-      throw new Error(cloudData.error?.message || 'Cloudinary upload failed');
-    }
-    const res = await fetch(
-      `/api/branch/movements/${movementId}/handover-sheet`,
-      {
+    const key = `${movementId}-${noteType}`;
+    setUploadingSheet((p) => ({ ...p, [key]: true }));
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET);
+
+      const cloudRes = await fetch(
+        `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/auto/upload`,
+        { method: 'POST', body: formData }
+      );
+      const cloudData = await cloudRes.json();
+      if (!cloudRes.ok) throw new Error(cloudData.error?.message || 'Cloudinary failed');
+
+      const endpoint = noteType === 'transfer' ? 'transfer-note' : 'receiving-note';
+      const res = await fetch(`/api/branch/movements/${movementId}/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -119,26 +113,22 @@ const handleUploadSheet = async (movementId, file) => {
           uploadedBy: user.id,
           uploadedByName: user.name,
         }),
-      }
-    );
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
-    toast.success('✅ Signed handover sheet uploaded');
-    load();
-  } catch (err) {
-    toast.error('❌ ' + err.message);
-  } finally {
-    setUploadingSheet((p) => ({ ...p, [movementId]: false }));
-  }
-};
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      toast.success(`✅ ${noteType === 'transfer' ? 'Transfer' : 'Receiving'} note uploaded`);
+      load();
+    } catch (err) {
+      toast.error('❌ ' + err.message);
+    } finally {
+      setUploadingSheet((p) => ({ ...p, [key]: false }));
+    }
+  };
 
   const handleReceived = async (movementId) => {
-    const receiverName = prompt(
-      'Name of person receiving the gold?',
-      user?.name || ''
-    );
+    const receiverName = prompt('Name of person receiving the gold?', user?.name || '');
     if (!receiverName || !receiverName.trim()) return;
-
     try {
       const res = await fetch(`/api/branch/movements/${movementId}`, {
         method: 'PUT',
@@ -160,22 +150,10 @@ const handleUploadSheet = async (movementId, file) => {
 
   const badge = (status) => {
     const cfg = {
-      IN_TRANSIT: {
-        c: 'bg-yellow-100 text-yellow-700',
-        i: TruckIcon,
-        l: 'In Transit',
-      },
-      RECEIVED: {
-        c: 'bg-green-100 text-green-700',
-        i: CheckCircleIcon,
-        l: 'Received',
-      },
+      IN_TRANSIT: { c: 'bg-yellow-100 text-yellow-700', i: TruckIcon, l: 'In Transit' },
+      RECEIVED: { c: 'bg-green-100 text-green-700', i: CheckCircleIcon, l: 'Received' },
       PENDING: { c: 'bg-blue-100 text-blue-700', i: TruckIcon, l: 'Pending' },
-      CANCELLED: {
-        c: 'bg-red-100 text-red-700',
-        i: XMarkIcon,
-        l: 'Cancelled',
-      },
+      CANCELLED: { c: 'bg-red-100 text-red-700', i: XMarkIcon, l: 'Cancelled' },
     };
     return cfg[status] || cfg.PENDING;
   };
@@ -195,8 +173,7 @@ const handleUploadSheet = async (movementId, file) => {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-            <ArrowsRightLeftIcon className="w-8 h-8 text-yellow-600" /> Stock
-            Movements
+            <ArrowsRightLeftIcon className="w-8 h-8 text-yellow-600" /> Stock Movements
           </h1>
           <p className="text-gray-500 mt-1">Incoming and outgoing transfers</p>
         </div>
@@ -221,214 +198,144 @@ const handleUploadSheet = async (movementId, file) => {
             const b = badge(m.status);
             const Icon = b.i;
             const isIncoming = m.toBranchId === user.branchId;
+            const isOutgoing = m.fromBranchId === user.branchId;
             const itemCount = m.itemIds?.length || 0;
             const isExpanded = expandedId === m.id;
-            const hasPeople =
-              m.handedOverByName || m.carrierName || m.receivedByName;
+            const hasPeople = m.handedOverByName || m.carrierName || m.receivedByName;
+            const isAgentCarrier = m.carrierType === 'AGENT' && m.carrierId;
 
             return (
-              <div
-                key={m.id}
-                className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden"
-              >
+              <div key={m.id} className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
                 <div className="px-6 py-4">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span
-                      className={`text-xs px-2 py-1 rounded-full inline-flex items-center gap-1 ${b.c}`}
-                    >
+                    <span className={`text-xs px-2 py-1 rounded-full inline-flex items-center gap-1 ${b.c}`}>
                       <Icon className="w-3 h-3" /> {b.l}
                     </span>
-                    <span
-                      className={`text-xs font-bold ${
-                        isIncoming ? 'text-green-600' : 'text-red-600'
-                      }`}
-                    >
+                    <span className={`text-xs font-bold ${isIncoming ? 'text-green-600' : 'text-red-600'}`}>
                       {isIncoming ? '↓ INCOMING' : '↑ OUTGOING'}
                     </span>
+                    {isAgentCarrier && (
+                      <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full font-medium">
+                        🤖 Carried by Agent
+                      </span>
+                    )}
                     {itemCount > 0 && (
                       <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
                         {itemCount} item{itemCount > 1 ? 's' : ''}
                       </span>
                     )}
-                    <span className="text-xs text-gray-400 ml-auto font-mono">
-                      #{m.id.slice(-8)}
-                    </span>
+                    <span className="text-xs text-gray-400 ml-auto font-mono">#{m.id.slice(-8)}</span>
                   </div>
 
+                  {/* Route + weight + date */}
                   <p className="text-sm mt-2">
                     <span className="text-gray-500">From:</span>{' '}
-                    <span className="font-medium">
-                      {m.fromBranch?.name || 'External'}
-                    </span>
+                    <span className="font-medium">{m.fromBranch?.name || 'External'}</span>
                     {' → '}
                     <span className="text-gray-500">To:</span>{' '}
-                    <span className="font-medium">
-                      {m.toBranch?.name || 'External'}
-                    </span>
+                    <span className="font-medium">{m.toBranch?.name || 'External'}</span>
                   </p>
                   <p className="text-sm font-semibold text-gray-900 mt-1">
                     {m.weight.toFixed(2)}g ({m.purity})
                   </p>
-                  {m.description && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {m.description}
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-400 mt-1">
-                    {new Date(m.createdAt).toLocaleString()}
-                  </p>
+                  {m.description && <p className="text-xs text-gray-500 mt-1">{m.description}</p>}
+                  <p className="text-xs text-gray-400 mt-1">{new Date(m.createdAt).toLocaleString()}</p>
 
                   {/* People chain */}
                   {hasPeople && (
                     <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                       <div className="bg-gray-50 rounded-lg p-2.5 border border-gray-100">
-                        <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">
-                          Handed over by
-                        </p>
-                        <p className="font-medium text-gray-900 mt-0.5 truncate">
-                          {m.handedOverByName || '—'}
-                        </p>
-                        {m.handedOverByPhone && (
-                          <p className="text-gray-500 truncate">
-                            {m.handedOverByPhone}
-                          </p>
-                        )}
+                        <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Handed over by</p>
+                        <p className="font-medium text-gray-900 mt-0.5 truncate">{m.handedOverByName || '—'}</p>
+                        {m.handedOverByPhone && <p className="text-gray-500 truncate">{m.handedOverByPhone}</p>}
                       </div>
                       <div className="bg-yellow-50 rounded-lg p-2.5 border border-yellow-100">
-                        <p className="text-[10px] uppercase tracking-wider text-yellow-700 font-semibold">
-                          Carried by
-                        </p>
+                        <p className="text-[10px] uppercase tracking-wider text-yellow-700 font-semibold">Carried by</p>
                         <p className="font-medium text-gray-900 mt-0.5 truncate">
                           {m.carrierName || '—'}
-                          {m.carrierType && (
-                            <span className="ml-1 text-[10px] text-yellow-700 font-normal">
-                              ({m.carrierType})
-                            </span>
-                          )}
+                          {m.carrierType && <span className="ml-1 text-[10px] text-yellow-700 font-normal">({m.carrierType})</span>}
                         </p>
-                        {m.carrierPhone && (
-                          <p className="text-gray-500 truncate">
-                            {m.carrierPhone}
-                          </p>
-                        )}
+                        {m.carrierPhone && <p className="text-gray-500 truncate">{m.carrierPhone}</p>}
                       </div>
                       <div className="bg-green-50 rounded-lg p-2.5 border border-green-100">
-                        <p className="text-[10px] uppercase tracking-wider text-green-700 font-semibold">
-                          Received by
-                        </p>
-                        <p className="font-medium text-gray-900 mt-0.5 truncate">
-                          {m.receivedByName || '—'}
-                        </p>
-                        {m.receivedAt && (
-                          <p className="text-gray-500 truncate">
-                            {new Date(m.receivedAt).toLocaleString()}
-                          </p>
-                        )}
+                        <p className="text-[10px] uppercase tracking-wider text-green-700 font-semibold">Received by</p>
+                        <p className="font-medium text-gray-900 mt-0.5 truncate">{m.receivedByName || '—'}</p>
+                        {m.receivedAt && <p className="text-gray-500 truncate">{new Date(m.receivedAt).toLocaleString()}</p>}
                       </div>
                     </div>
                   )}
 
+                  {/* Actions */}
                   <div className="mt-3 flex flex-wrap gap-2">
-  {itemCount > 0 && (
-    <button
-      onClick={() => setExpandedId(isExpanded ? null : m.id)}
-      className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50 transition"
-    >
-      {isExpanded ? (
-        <>
-          <ChevronUpIcon className="w-4 h-4" /> Hide Items
-        </>
-      ) : (
-        <>
-          <ChevronDownIcon className="w-4 h-4" /> View Items
-        </>
-      )}
-    </button>
-  )}
+                    {itemCount > 0 && (
+                      <button
+                        onClick={() => setExpandedId(isExpanded ? null : m.id)}
+                        className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50"
+                      >
+                        {isExpanded ? (<><ChevronUpIcon className="w-4 h-4" /> Hide Items</>) : (<><ChevronDownIcon className="w-4 h-4" /> View Items</>)}
+                      </button>
+                    )}
 
-  <button
-    onClick={() => handleDownloadSheet(m)}
-    disabled={downloadingSheet === m.id}
-    className="text-sm text-gray-700 hover:text-black flex items-center gap-1 border border-gray-300 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition disabled:opacity-50"
-  >
-    <ArrowDownTrayIcon className="w-4 h-4" />
-    {downloadingSheet === m.id ? 'Preparing…' : 'Handover Sheet'}
-  </button>
+                    {isOutgoing && m.status !== 'CANCELLED' && (
+                      <button
+                        onClick={() => handleDownloadNote(m, 'transfer')}
+                        disabled={downloadingSheet === `${m.id}-transfer`}
+                        className="text-sm text-gray-700 hover:text-black flex items-center gap-1 border border-gray-300 rounded-lg px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        <ArrowDownTrayIcon className="w-4 h-4" />
+                        {downloadingSheet === `${m.id}-transfer` ? 'Preparing…' : 'Transfer Note'}
+                      </button>
+                    )}
 
-  {isIncoming && m.status === 'IN_TRANSIT' && (
-    <button
-      onClick={() => handleReceived(m.id)}
-      className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-1"
-    >
-      <CheckCircleIcon className="w-4 h-4" /> Mark Received
-    </button>
-  )}
-</div>
+                    {isIncoming && m.status === 'RECEIVED' && (
+                      <button
+                        onClick={() => handleDownloadNote(m, 'receiving')}
+                        disabled={downloadingSheet === `${m.id}-receiving`}
+                        className="text-sm text-gray-700 hover:text-black flex items-center gap-1 border border-gray-300 rounded-lg px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        <ArrowDownTrayIcon className="w-4 h-4" />
+                        {downloadingSheet === `${m.id}-receiving` ? 'Preparing…' : 'Receiving Note'}
+                      </button>
+                    )}
 
-{/* Signed sheet status / upload */}
-{isIncoming && (
-  <div className="mt-3 pt-3 border-t border-gray-100">
-    {m.handoverSheetUrl ? (
-      <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl p-3">
-        <CheckCircleIcon className="w-5 h-5 text-green-600 flex-shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-green-800">
-            Signed handover sheet uploaded
-          </p>
-          <p className="text-xs text-green-600">
-            {m.handoverSheetUploadedByName
-              ? `By ${m.handoverSheetUploadedByName}`
-              : ''}
-            {m.handoverSheetUploadedAt
-              ? ` • ${new Date(m.handoverSheetUploadedAt).toLocaleString()}`
-              : ''}
-          </p>
-        </div>
-        <a
-          href={m.handoverSheetUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-green-700 underline font-medium hover:text-green-900 whitespace-nowrap"
-        >
-          View
-        </a>
-      </div>
-    ) : (
-      <label
-        className={`flex items-center justify-center gap-2 bg-blue-50 hover:bg-blue-100 border-2 border-dashed border-blue-300 rounded-xl px-4 py-3 cursor-pointer transition ${
-          uploadingSheet[m.id] ? 'opacity-60' : ''
-        }`}
-      >
-        {uploadingSheet[m.id] ? (
-          <>
-            <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm font-medium text-blue-700">
-              Uploading…
-            </span>
-          </>
-        ) : (
-          <>
-            <DocumentArrowUpIcon className="w-5 h-5 text-blue-600" />
-            <span className="text-sm font-medium text-blue-700">
-              Upload signed handover sheet (photo or PDF)
-            </span>
-          </>
-        )}
-        <input
-          type="file"
-          accept="image/*,application/pdf"
-          className="hidden"
-          disabled={!!uploadingSheet[m.id]}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) handleUploadSheet(m.id, file);
-            e.target.value = '';
-          }}
-        />
-      </label>
-    )}
-  </div>
-)}
+                    {isIncoming && m.status === 'IN_TRANSIT' && (
+                      <button
+                        onClick={() => handleReceived(m.id)}
+                        className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-1"
+                      >
+                        <CheckCircleIcon className="w-4 h-4" /> Mark Received
+                      </button>
+                    )}
+                  </div>
+
+                  {/* ─────── TWO NOTE SECTIONS ─────── */}
+                  <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Transfer Note block */}
+                    <NoteBlock
+                      label="Transfer Note"
+                      subtitle="Signed by source & carrier"
+                      url={m.transferNoteUrl}
+                      uploadedAt={m.transferNoteUploadedAt}
+                      uploadedByName={m.transferNoteUploadedByName}
+                      canUpload={isOutgoing}
+                      isUploading={uploadingSheet[`${m.id}-transfer`]}
+                      onUpload={(file) => uploadNote(m.id, 'transfer', file)}
+                      accentColor="amber"
+                    />
+
+                    {/* Receiving Note block */}
+                    <NoteBlock
+                      label="Receiving Note"
+                      subtitle="Signed by receiving branch"
+                      url={m.receivingNoteUrl}
+                      uploadedAt={m.receivingNoteUploadedAt}
+                      uploadedByName={m.receivingNoteUploadedByName}
+                      canUpload={isIncoming && m.status === 'RECEIVED'}
+                      isUploading={uploadingSheet[`${m.id}-receiving`]}
+                      onUpload={(file) => uploadNote(m.id, 'receiving', file)}
+                      accentColor="green"
+                    />
+                  </div>
                 </div>
 
                 {/* Expanded items */}
@@ -438,14 +345,10 @@ const handleUploadSheet = async (movementId, file) => {
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.25 }}
                       className="border-t border-gray-100 bg-gray-50 overflow-hidden"
                     >
                       <div className="p-4">
-                        <MovementItems
-                          movementId={m.id}
-                          onPreviewImage={setPreviewImage}
-                        />
+                        <MovementItems movementId={m.id} onPreviewImage={setPreviewImage} />
                       </div>
                     </motion.div>
                   )}
@@ -454,35 +357,24 @@ const handleUploadSheet = async (movementId, file) => {
             );
           })}
 
+          {/* Hidden PDF renderer */}
           {sheetData && (
-  <div
-    aria-hidden="true"
-    style={{
-      position: 'fixed',
-      left: '-10000px',
-      top: 0,
-      pointerEvents: 'none',
-    }}
-  >
-    <MovementHandoverSheet
-      ref={sheetRef}
-      movement={sheetData.movement}
-      items={sheetData.items}
-    />
-  </div>
-)}
-
+            <div style={{ position: 'fixed', left: '-10000px', top: 0, pointerEvents: 'none' }}>
+              <MovementTransferNote
+                ref={sheetRef}
+                movement={sheetData.movement}
+                items={sheetData.items}
+                noteType={sheetData.noteType}
+              />
+            </div>
+          )}
         </div>
       )}
 
-      {/* New Movement Modal */}
       <NewMovementModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        onCreated={() => {
-          setModalOpen(false);
-          load();
-        }}
+        onCreated={() => { setModalOpen(false); load(); }}
         branchId={user?.branchId}
         branches={branches}
         userId={user?.id}
@@ -494,24 +386,14 @@ const handleUploadSheet = async (movementId, file) => {
       <AnimatePresence>
         {previewImage && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/95 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
             onClick={() => setPreviewImage(null)}
           >
-            <button
-              onClick={() => setPreviewImage(null)}
-              className="absolute top-4 right-4 text-white hover:text-yellow-400 p-2 rounded-full bg-white/10"
-            >
+            <button className="absolute top-4 right-4 text-white hover:text-yellow-400 p-2 rounded-full bg-white/10">
               <XMarkIcon className="w-8 h-8" />
             </button>
-            <img
-              src={previewImage}
-              alt="Preview"
-              className="max-w-full max-h-full object-contain rounded-lg"
-              onClick={(e) => e.stopPropagation()}
-            />
+            <img src={previewImage} alt="Preview" className="max-w-full max-h-full object-contain rounded-lg" onClick={(e) => e.stopPropagation()} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -519,9 +401,65 @@ const handleUploadSheet = async (movementId, file) => {
   );
 }
 
-// ============================================
-// Movement Items – fetch & display item list
-// ============================================
+/* ─────── Note Block sub-component ─────── */
+function NoteBlock({ label, subtitle, url, uploadedAt, uploadedByName, canUpload, isUploading, onUpload, accentColor }) {
+  const accent = {
+    amber: {
+      bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-800',
+      dashed: 'border-amber-300', btn: 'bg-amber-50 hover:bg-amber-100', btnText: 'text-amber-700',
+    },
+    green: {
+      bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-800',
+      dashed: 'border-green-300', btn: 'bg-green-50 hover:bg-green-100', btnText: 'text-green-700',
+    },
+  }[accentColor] || {
+    bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700',
+    dashed: 'border-gray-300', btn: 'bg-gray-50 hover:bg-gray-100', btnText: 'text-gray-700',
+  };
+
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1">{label}</p>
+      <p className="text-[10px] text-gray-400 mb-2">{subtitle}</p>
+
+      {url ? (
+        <div className={`flex items-center gap-2 ${accent.bg} ${accent.border} border rounded-lg p-2`}>
+          <CheckCircleIcon className={`w-4 h-4 ${accent.text} flex-shrink-0`} />
+          <div className="flex-1 min-w-0">
+            <p className={`text-[11px] font-medium ${accent.text} truncate`}>Uploaded</p>
+            <p className="text-[10px] text-gray-500 truncate">
+              {uploadedByName || ''}{uploadedAt ? ` • ${new Date(uploadedAt).toLocaleDateString()}` : ''}
+            </p>
+          </div>
+          <a href={url} target="_blank" rel="noopener noreferrer" className={`text-[11px] ${accent.text} underline font-medium flex-shrink-0`}>
+            View
+          </a>
+        </div>
+      ) : canUpload ? (
+        <label className={`flex items-center justify-center gap-1.5 ${accent.btn} border-2 border-dashed ${accent.dashed} rounded-lg px-3 py-2 cursor-pointer transition ${isUploading ? 'opacity-60' : ''}`}>
+          {isUploading ? (
+            <>
+              <div className={`w-3.5 h-3.5 border-2 ${accent.btnText} border-t-transparent rounded-full animate-spin`} />
+              <span className={`text-[11px] font-medium ${accent.btnText}`}>Uploading…</span>
+            </>
+          ) : (
+            <>
+              <DocumentArrowUpIcon className={`w-4 h-4 ${accent.btnText}`} />
+              <span className={`text-[11px] font-medium ${accent.btnText}`}>Upload signed {label}</span>
+            </>
+          )}
+          <input type="file" accept="image/*,application/pdf" className="hidden" disabled={isUploading} onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ''; }} />
+        </label>
+      ) : (
+        <div className="text-[11px] text-gray-400 italic bg-gray-50 border border-dashed border-gray-200 rounded-lg px-3 py-2">
+          Not uploaded yet
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────── MovementItems, NewMovementModal  ─────── */
 function MovementItems({ movementId, onPreviewImage }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
