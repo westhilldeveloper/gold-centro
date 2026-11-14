@@ -24,6 +24,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import MovementHandoverSheet from '../../components/MovementTransferNote';
 import { downloadHandoverSheet } from '../../../lib/downloadTransferNote';
+import { downloadTransferNote } from '../../../lib/downloadTransferNote';
 
 export default function AdminStockMovementPage() {
   const { user } = useAuth();
@@ -70,7 +71,7 @@ export default function AdminStockMovementPage() {
     await new Promise((r) => requestAnimationFrame(r));
     if (!sheetRef.current) return;
     try {
-      await downloadHandoverSheet(sheetRef.current, sheetData.movement);
+      await downloadTransferNote(sheetRef.current, sheetData.movement);
       toast.success('📄 Handover sheet downloaded');
     } catch (err) {
       toast.error('Download failed: ' + err.message);
