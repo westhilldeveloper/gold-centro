@@ -1,5 +1,10 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { hashPassword } from '@/lib/server/password';
+
+export const runtime = 'nodejs';
+
+
 
 // ---- UPDATE agent ----
 export async function PUT(req, { params }) {
@@ -8,43 +13,45 @@ export async function PUT(req, { params }) {
     const { name, phone, password, branchId } = await req.json();
 
     if (!id) {
-      return NextResponse.json(
-        { success: false, error: 'Agent ID required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: 'Agent ID required' }, { status: 400 });
     }
 
     if (phone) {
       const existing = await prisma.user.findUnique({ where: { phone } });
       if (existing && existing.id !== id) {
-        return NextResponse.json(
-          { success: false, error: 'Phone number already in use' },
-          { status: 400 }
-        );
+        return NextResponse.json({ success: false, error: 'Phone number already in use' }, { status: 400 });
       }
     }
 
     const data = {};
     if (name) data.name = name;
     if (phone) data.phone = phone;
-    if (password !== undefined) data.password = password || null;
-    if (branchId !== undefined) data.branchId = branchId || null;   // ← ADD
+    if (branchId !== undefined) data.branchId = branchId || null;
+
+    // Hash only when a new non-empty password is supplied.
+    // '' or undefined → leave existing hash untouched.
+    if (password !== undefined && password !== '') {
+      try {
+        data.password = await hashPassword(password);
+      } catch (e) {
+        if (e.code === 'WEAK_PASSWORD') {
+          return NextResponse.json({ success: false, error: e.message }, { status: 400 });
+        }
+        throw e;
+      }
+    }
 
     const agent = await prisma.user.update({
       where: { id },
       data,
-      include: {
-        branch: { select: { id: true, name: true, code: true } },
-      },
+      include: { branch: { select: { id: true, name: true, code: true } } },
     });
 
-    return NextResponse.json({ success: true, agent });
+    const { password: _, ...safeAgent } = agent;
+    return NextResponse.json({ success: true, agent: safeAgent });
   } catch (error) {
     console.error('Update agent error:', error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to update agent' }, { status: 500 });
   }
 }
 

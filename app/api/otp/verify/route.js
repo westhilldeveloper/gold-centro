@@ -1,3 +1,4 @@
+// D:\gold-centro\app\api\otp\verify\route.js
 import { prisma } from '../../../../lib/prisma';
 import { NextResponse } from 'next/server';
 import { emitToRoom } from '../../../../lib/socket-helper';

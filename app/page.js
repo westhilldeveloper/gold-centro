@@ -108,7 +108,7 @@ const proceedWithSell = async (userId) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        customerId: userId, // <-- now using the passed userId
+        customerId: userId, 
         weight: parseFloat(weight),
         purity,
         estimatedTotal: estimated,
@@ -132,7 +132,12 @@ const proceedWithSell = async (userId) => {
 
     setStep('OTP');
     window._tempOrderId = createData.order.id;
-    toast.success(`Dummy OTP: ${otpData.dummyCode || '123456'}`, { duration: 10000 });
+    toast.success(
+  process.env.NODE_ENV === 'development' && otpData.dummyCode
+    ? `DEV OTP: ${otpData.dummyCode}`
+    : 'OTP sent to your registered mobile',
+  { duration: 6000 }
+);
   } catch (err) {
     setError(err.message);
     toast.error(err.message);
@@ -144,7 +149,7 @@ const proceedWithSell = async (userId) => {
   // ---- Handle Sell button ----
  const handleSell = async () => {
   if (!user) {
-    setShowLoginModal(true);
+     router.push('/login/customer?next=/');
     return;
   }
   await proceedWithSell(user.id);
@@ -247,7 +252,7 @@ const proceedWithSell = async (userId) => {
         >
           <h2 className="text-3xl font-bold text-black">Enter OTP</h2>
           <p className="text-sm text-gray-500 mt-1">We sent a code to your registered number</p>
-          <p className="text-xs text-amber-500 mt-1">Dummy: 123456</p>
+          {/* <p className="text-xs text-amber-500 mt-1">Dummy: 123456</p> */}
           <div className="mt-6 flex justify-center gap-3" id="otp-container">
             {[0, 1, 2, 3, 4, 5].map((i) => (
               <input

@@ -17,14 +17,9 @@ export const AuthProvider = ({ children }) => {
         if (res.ok) {
           const data = await res.json();
           if (data.success) {
-            // ✅ Ensure userType exists
-            const userWithType = data.user.userType 
-              ? data.user 
-              : { 
-                  ...data.user, 
-                  userType: ['CUSTOMER', 'AGENT', 'ADMIN'].includes(data.user.role) ? 'USER' : 'BRANCH_STAFF' 
-                };
-            
+            const userWithType = data.user.userType
+              ? data.user
+              : { ...data.user, userType: ['CUSTOMER','AGENT','ADMIN'].includes(data.user.role) ? 'USER' : 'BRANCH_STAFF' };
             setUser(userWithType);
             localStorage.setItem('goldUser', JSON.stringify(userWithType));
           } else {
@@ -45,24 +40,28 @@ export const AuthProvider = ({ children }) => {
     })();
   }, []);
 
-  // ---- Regular login (customer/agent/admin) ----
-  const login = async (phone, role, name) => {
+  // Persist a session returned by any auth endpoint (login / set-password)
+  const applySession = (userData, token) => {
+    const userWithType = { ...userData, userType: 'USER' };
+    setUser(userWithType);
+    localStorage.setItem('goldUser', JSON.stringify(userWithType));
+    if (token) localStorage.setItem('token', token);
+  };
+
+  const login = async (phone, password, role, next) => {
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, role, name }),
+        body: JSON.stringify({ phone, password, role }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Login failed');
 
-      const userWithType = { ...data.user, userType: 'USER' };
-      setUser(userWithType);
-      localStorage.setItem('goldUser', JSON.stringify(userWithType));
+      applySession(data.user, data.token);
 
-      if (data.token) localStorage.setItem('token', data.token);
-
-      if (data.user.role === 'ADMIN') router.push('/admin');
+      if (next && next.startsWith('/')) router.push(next);
+      else if (data.user.role === 'ADMIN') router.push('/admin');
       else if (data.user.role === 'AGENT') router.push('/agent');
       else router.push('/');
 
@@ -105,20 +104,18 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('goldUser', JSON.stringify(userData));
   };
 
-  const logout = async () => {
-    try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } catch { /* ignore */ }
-    setUser(null);
-    localStorage.removeItem('goldUser');
-    router.push('/login');
-  };
-
+  
+const logout = async (redirectTo = '/login') => {
+  try {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+  } catch {}
+  setUser(null);
+  localStorage.removeItem('goldUser');
+  localStorage.removeItem('token');   // ← the missing line
+  router.push(redirectTo);
+};
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginBranchStaff, logout, setUser: setUserData }}>
+    <AuthContext.Provider value={{ user, loading, login, loginBranchStaff, logout, setUser: setUserData, applySession }}>
       {children}
     </AuthContext.Provider>
   );

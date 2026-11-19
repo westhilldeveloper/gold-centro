@@ -1,3 +1,4 @@
+// D:\gold-centro\app\api\admin\branches\[id]\route.js
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 

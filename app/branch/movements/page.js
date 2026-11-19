@@ -22,6 +22,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../../context/AuthContext';
 
+
 export default function BranchMovements() {
   const { user } = useAuth();
   const [movements, setMovements] = useState([]);

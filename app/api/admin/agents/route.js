@@ -1,7 +1,9 @@
-import { prisma } from '../../../../lib/prisma';
+import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { hashPassword } from '@/lib/server/password';
 
-// ---- LIST all agents ----
+export const runtime = 'nodejs';
+
 export async function GET() {
   try {
     const agents = await prisma.user.findMany({
@@ -31,7 +33,6 @@ export async function GET() {
   }
 }
 
-// ---- CREATE new agent ----
 export async function POST(req) {
   try {
     const { name, phone, password, branchId } = await req.json();
@@ -51,25 +52,40 @@ export async function POST(req) {
       );
     }
 
+    let hashed = null;
+    if (password) {
+      try {
+        hashed = await hashPassword(password);
+      } catch (e) {
+        if (e.code === 'WEAK_PASSWORD') {
+          return NextResponse.json({ success: false, error: e.message }, { status: 400 });
+        }
+        throw e;
+      }
+    }
+
     const agent = await prisma.user.create({
       data: {
         name,
         phone,
         role: 'AGENT',
-        password: password || null,
-        branchId: branchId || null,   // ← ADD
+        password: hashed,             // ← now a bcrypt hash
+        branchId: branchId || null,
       },
       include: {
         branch: { select: { id: true, name: true, code: true } },
       },
     });
 
-    return NextResponse.json({ success: true, agent });
+    // Do NOT return the password field
+    const { password: _, ...safeAgent } = agent;
+    return NextResponse.json({ success: true, agent: safeAgent });
   } catch (error) {
     console.error('Create agent error:', error);
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: 'Failed to create agent' },
       { status: 500 }
     );
   }
 }
+

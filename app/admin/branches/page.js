@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react'; // Removed useMemo
 import { motion, AnimatePresence } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import {
@@ -12,10 +12,51 @@ import {
   MapPinIcon,
   PhoneIcon,
   StarIcon,
+  ChartBarIcon,
+  ClipboardDocumentListIcon,ScaleIcon,BanknotesIcon, ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
+
+// --- helpers ---
+const formatINR = (n) =>
+  new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+  }).format(n || 0);
+
+const formatWeight = (g) => {
+  const n = g || 0;
+  return n >= 1000 ? `${(n / 1000).toFixed(2)} kg` : `${n.toFixed(2)} g`;
+};
+
+const downloadCSV = (data, filename) => {
+  if (!data || !data.length) return;
+  const headers = Object.keys(data[0]);
+  const csvContent = [
+    headers.join(','),
+    ...data.map(row => headers.map(header => {
+      let cell = row[header] === null || row[header] === undefined ? '' : row[header];
+      cell = cell.toString().replace(/"/g, '""'); // escape quotes
+      if (cell.includes(',') || cell.includes('\n') || cell.includes('"')) {
+        cell = `"${cell}"`;
+      }
+      return cell;
+    }).join(','))
+  ].join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
 
 export default function BranchesPage() {
   const [branches, setBranches] = useState([]);
+  const [grandTotal, setGrandTotal] = useState({ orders: 0, amount: 0, weight: 0 });
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -27,17 +68,63 @@ export default function BranchesPage() {
 
   const fetchBranches = async () => {
     try {
-      const res = await fetch('/api/admin/branches');
-      const data = await res.json();
-      if (data.success) setBranches(data.branches);
+      const res = await fetch('/api/admin/branches', { credentials: 'include' });
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : {};
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || `Failed to load branches (HTTP ${res.status})`);
+      }
+      
+      setBranches(data.branches);
+      
+      // ─── NEW: Capture the backend grandTotal ───
+      if (data.grandTotal) {
+        setGrandTotal(data.grandTotal);
+      }
+      
     } catch (err) {
-      toast.error('Failed to load branches');
+      console.error('[branches GET]', err);
+      toast.error(err.message);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => { fetchBranches(); }, []);
+
+  // Download everything
+  const downloadFullReport = () => {
+    const totalRow = {
+      'Branch Name': '--- GRAND TOTAL ---',
+      'Branch Code': '',
+      'Orders': grandTotal.orders,
+      'Weight (g)': grandTotal.weight.toFixed(2),
+      'Amount (INR)': grandTotal.amount,
+    };
+    
+    const branchRows = branches.map(b => ({
+      'Branch Name': b.name,
+      'Branch Code': b.code,
+      'Orders': b.sell?.orders || 0,
+      'Weight (g)': (b.sell?.weight || 0).toFixed(2),
+      'Amount (INR)': b.sell?.amount || 0,
+    }));
+
+    // Combine into one file
+    downloadCSV([totalRow, ...branchRows], `Full_Sales_Report_${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
+  // Download just one branch
+  const downloadBranchReport = (b) => {
+    const data = [{
+      'Branch Name': b.name,
+      'Branch Code': b.code,
+      'Orders': b.sell?.orders || 0,
+      'Weight (g)': (b.sell?.weight || 0).toFixed(2),
+      'Amount (INR)': b.sell?.amount || 0,
+    }];
+    downloadCSV(data, `${b.name}_Sales_Report_${new Date().toISOString().split('T')[0]}.csv`);
+  };
 
   const openCreate = () => {
     setEditing(null);
@@ -101,6 +188,7 @@ export default function BranchesPage() {
     <div className="space-y-6">
       <Toaster position="top-center" />
 
+      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
@@ -109,16 +197,73 @@ export default function BranchesPage() {
           </h1>
           <p className="text-gray-500 mt-1">{branches.length} branch(es)</p>
         </div>
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={openCreate}
-          className="flex items-center gap-2 bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-bold px-5 py-3 rounded-xl shadow-md hover:shadow-lg"
-        >
-          <PlusIcon className="w-5 h-5" /> Add Branch
-        </motion.button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={downloadFullReport}
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-bold px-5 py-3 rounded-xl shadow-md transition"
+          >
+            <ArrowDownTrayIcon className="w-5 h-5" /> Export Full Report
+          </button>
+
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={openCreate}
+            className="flex items-center gap-2 bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-bold px-5 py-3 rounded-xl shadow-md hover:shadow-lg"
+          >
+            <PlusIcon className="w-5 h-5" /> Add Branch
+          </motion.button>
+        </div>
       </div>
 
+      {/* ─── GRAND TOTAL SELL REPORT ─── */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl shadow-lg p-6 text-white"
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <ChartBarIcon className="w-6 h-6 text-yellow-400" />
+          <h2 className="text-lg font-bold">Total Sales — All Branches</h2>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+            <div className="flex items-center gap-2 text-yellow-400 text-xs font-medium uppercase tracking-wider">
+              <ClipboardDocumentListIcon className="w-4 h-4" /> Orders
+            </div>
+            <p className="text-2xl font-bold mt-1">
+              {/* Changed to grandTotal */}
+              {(grandTotal.orders || 0).toLocaleString('en-IN')}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">completed sales</p>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+            <div className="flex items-center gap-2 text-yellow-400 text-xs font-medium uppercase tracking-wider">
+              <ScaleIcon className="w-4 h-4" /> Weight
+            </div>
+            <p className="text-2xl font-bold mt-1">
+              {/* Changed to grandTotal */}
+              {formatWeight(grandTotal.weight)}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">total gold sold by customers</p>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+            <div className="flex items-center gap-2 text-yellow-400 text-xs font-medium uppercase tracking-wider">
+              <BanknotesIcon className="w-4 h-4" /> Amount
+            </div>
+            <p className="text-2xl font-bold mt-1">
+              {/* Changed to grandTotal */}
+              {formatINR(grandTotal.amount)}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">total paid to customers</p>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* ─── Branch grid ─── */}
       {branches.length === 0 ? (
         <div className="bg-white rounded-2xl shadow-md p-12 text-center">
           <BuildingStorefrontIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -142,10 +287,20 @@ export default function BranchesPage() {
               <p className="text-xs text-gray-500 font-mono mt-0.5">{b.code}</p>
 
               <div className="mt-3 space-y-1.5 text-sm text-gray-600">
-                {b.address && <p className="flex items-start gap-1.5"><MapPinIcon className="w-4 h-4 mt-0.5 text-gray-400 flex-shrink-0" />{b.address}{b.city ? `, ${b.city}` : ''}{b.pincode ? ` - ${b.pincode}` : ''}</p>}
-                {b.phone && <p className="flex items-center gap-1.5"><PhoneIcon className="w-4 h-4 text-gray-400" />{b.phone}</p>}
+                {b.address && (
+                  <p className="flex items-start gap-1.5">
+                    <MapPinIcon className="w-4 h-4 mt-0.5 text-gray-400 flex-shrink-0" />
+                    {b.address}{b.city ? `, ${b.city}` : ''}{b.pincode ? ` - ${b.pincode}` : ''}
+                  </p>
+                )}
+                {b.phone && (
+                  <p className="flex items-center gap-1.5">
+                    <PhoneIcon className="w-4 h-4 text-gray-400" />{b.phone}
+                  </p>
+                )}
               </div>
 
+              {/* Counts row — unchanged */}
               <div className="mt-4 pt-3 border-t border-gray-100 grid grid-cols-3 gap-2 text-center">
                 <div>
                   <p className="text-xs text-gray-500">Agents</p>
@@ -161,7 +316,28 @@ export default function BranchesPage() {
                 </div>
               </div>
 
+              {/* Branch sell summary */}
+              <div className="mt-3 pt-3 border-t border-gray-100 bg-yellow-50/60 rounded-xl px-3 py-2">
+                <p className="text-[10px] font-semibold text-yellow-700 uppercase tracking-wider mb-1">
+                  Sales (this branch)
+                </p>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">
+                    {b.sell?.orders ?? 0} order{(b.sell?.orders ?? 0) === 1 ? '' : 's'}
+                  </span>
+                  <span className="text-gray-600">{formatWeight(b.sell?.weight)}</span>
+                  <span className="font-bold text-gray-900">{formatINR(b.sell?.amount)}</span>
+                </div>
+              </div>
+
               <div className="mt-4 flex justify-end gap-2">
+                <button 
+                  onClick={() => downloadBranchReport(b)} 
+                  className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition"
+                  title="Download Branch Report"
+                >
+                  <ArrowDownTrayIcon className="w-5 h-5" />
+                </button>
                 <button onClick={() => openEdit(b)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg">
                   <PencilSquareIcon className="w-5 h-5" />
                 </button>
@@ -170,7 +346,9 @@ export default function BranchesPage() {
                   disabled={deleting[b.id]}
                   className="p-2 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
                 >
-                  {deleting[b.id] ? <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin" /> : <TrashIcon className="w-5 h-5" />}
+                  {deleting[b.id]
+                    ? <div className="w-5 h-5 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                    : <TrashIcon className="w-5 h-5" />}
                 </button>
               </div>
             </motion.div>
@@ -178,7 +356,7 @@ export default function BranchesPage() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Modal unchanged... */}
       <AnimatePresence>
         {modalOpen && (
           <motion.div

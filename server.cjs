@@ -1,4 +1,4 @@
-// server.js
+// server.cjs
 require('dotenv').config({ path: ['.env.local', '.env'] });
 const { createServer } = require('http');
 const next = require('next');

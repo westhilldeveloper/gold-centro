@@ -1,65 +1,68 @@
-// app/api/auth/login/route.js
-import { prisma } from '../../../../lib/prisma';
 import { NextResponse } from 'next/server';
+import { prisma } from '../../../../lib/prisma';
 import { signToken } from '../../../../lib/server/auth';
+import { normalizePhone } from '../../../../lib/server/phone';
+import { verifyPassword, hashPassword } from '../../../../lib/server/password';
+import { publicUser } from '../../../../lib/server/tempToken';
 
 export const runtime = 'nodejs';
 
+const err = (status, message) =>
+  NextResponse.json({ success: false, error: message }, { status });
+
 export async function POST(req) {
   try {
-    const { phone, role, name } = await req.json();
+    const { phone: rawPhone, password, role } = await req.json();
+    const phone = normalizePhone(rawPhone);
+    if (!phone || !password) return err(400, 'Phone and password are required');
 
-    if (!phone) {
-      return NextResponse.json(
-        { success: false, error: 'Phone number is required' },
-        { status: 400 }
-      );
-    }
+    // (optional) rate limit here — see notes above
+    // const { success: allowed } = await ratelimit.limit(`login:${phone}`);
+    // if (!allowed) return err(429, 'Too many attempts. Try again later.');
 
-    let user = await prisma.user.findUnique({ where: { phone } });
+    const user = await prisma.user.findUnique({ where: { phone } });
 
-    if (!user) {
-      // ⚠️ First signup: force CUSTOMER. Admins/agents must be created
-      // via seed script or a protected admin route — never from the client.
-      user = await prisma.user.create({
-        data: {
-          phone,
-          name: name || `User_${phone.slice(-4)}`,
-          role: 'CUSTOMER',
-        },
-      });
+    // Single generic failure for every rejection reason — no oracle
+    const fail = () => err(401, 'Invalid phone number or password');
+
+    if (!user || !user.password) return fail();
+
+    const ok = await verifyPassword(password, user.password);
+    if (!ok) return fail();
+
+    // Role mismatch also uses the generic error — see note above
+    if (role && user.role !== role) return fail();
+
+    // Lazy migration: plaintext (or any non-bcrypt) → bcrypt on first success
+    if (!user.password.startsWith('$2')) {
+      try {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { password: await hashPassword(password) },
+        });
+      } catch (e) {
+        console.warn('user rehash failed (non-fatal)', e);
+      }
     }
 
     const token = signToken({ id: user.id, role: user.role });
+    const isProd = process.env.NODE_ENV === 'production';
 
     const res = NextResponse.json({
       success: true,
-      token: token,
-      user: {
-        id: user.id,
-        phone: user.phone,
-        name: user.name,
-        role: user.role,
-        aadhaarFront: user.aadhaarFront || null,
-        aadhaarBack: user.aadhaarBack || null,
-        aadhaarNumber: user.aadhaarNumber || null,
-      },
+      token,
+      user: publicUser(user),
     });
-    const isProd = process.env.NODE_ENV === 'production';
     res.cookies.set('token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProd,
       sameSite: isProd ? 'none' : 'lax',
-      maxAge: 60 * 60 * 24 * 7,   // 7 days, matches JWT expiry
+      maxAge: 60 * 60 * 24 * 7,
       path: '/',
     });
-
     return res;
-  } catch (err) {
-    console.error('Login API Error:', err);
-    return NextResponse.json(
-      { success: false, error: err.message || 'Internal server error' },
-      { status: 500 }
-    );
+  } catch (e) {
+    console.error('Login API Error:', e);
+    return err(500, 'Login failed');
   }
 }

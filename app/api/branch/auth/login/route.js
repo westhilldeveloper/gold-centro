@@ -2,6 +2,7 @@
 import { prisma } from '../../../../../lib/prisma';
 import { NextResponse } from 'next/server';
 import { signToken } from '../../../../../lib/server/auth';
+import { verifyPassword, hashPassword } from '../../../../../lib/server/password';
 
 export const runtime = 'nodejs';
 
@@ -21,12 +22,31 @@ export async function POST(req) {
       include: { branch: true },
     });
 
-    if (!staff || staff.password !== password) {
-      return NextResponse.json(
+    // Generic failure — same response for missing user, missing password, wrong password.
+    const fail = () =>
+      NextResponse.json(
         { success: false, error: 'Invalid credentials' },
         { status: 401 }
       );
+
+    if (!staff || !staff.password) return fail();
+
+    const ok = await verifyPassword(password, staff.password);
+    if (!ok) return fail();
+
+    // One-time upgrade: if the DB still has a plaintext password, rehash now.
+    // verifyPassword already accepted it (legacy branch), so this is lossless.
+    if (!staff.password.startsWith('$2')) {
+      try {
+        await prisma.branchStaff.update({
+          where: { id: staff.id },
+          data: { password: await hashPassword(password) },
+        });
+      } catch (e) {
+        console.warn('branch staff rehash failed (non-fatal)', e);
+      }
     }
+
     if (!staff.isActive) {
       return NextResponse.json(
         { success: false, error: 'Account is inactive' },
@@ -35,10 +55,11 @@ export async function POST(req) {
     }
 
     const token = signToken({ id: staff.id, role: staff.role });
+    const isProd = process.env.NODE_ENV === 'production';
 
     const res = NextResponse.json({
       success: true,
-      token: token,
+      token,
       user: {
         id: staff.id,
         phone: staff.phone,
@@ -46,12 +67,13 @@ export async function POST(req) {
         role: staff.role,
         branchId: staff.branchId,
         branch: staff.branch,
+        userType: 'BRANCH_STAFF',   // ← bonus: keeps AuthContext happy without client-side coercion
       },
     });
-    const isProd = process.env.NODE_ENV === 'production';
+
     res.cookies.set('token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProd,
       sameSite: isProd ? 'none' : 'lax',
       maxAge: 60 * 60 * 24 * 7,
       path: '/',
@@ -61,7 +83,7 @@ export async function POST(req) {
   } catch (error) {
     console.error('Branch login error:', error);
     return NextResponse.json(
-      { success: false, error: error.message },
+      { success: false, error: 'Login failed' },
       { status: 500 }
     );
   }
