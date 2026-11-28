@@ -30,24 +30,25 @@ import ItemImageCarousel, {
 
 const PAGE_SIZE = 20;
 
+// ✅ Updated Status Styles to Outlined/Border variants
 const STATUS_STYLES = {
-  AGENT_ASSIGNED: 'bg-blue-100 text-blue-700',
-  AGENT_ARRIVED: 'bg-green-100 text-green-700',
-  AGENT_OFFER_SENT: 'bg-purple-100 text-purple-700',
-  ADMIN_OFFER_SENT: 'bg-orange-100 text-orange-700',
-  NEGOTIATING: 'bg-yellow-100 text-yellow-700',
-  CUSTOMER_PENDING_ACCEPTANCE: 'bg-indigo-100 text-indigo-700',
-  COMPLETED: 'bg-gray-100 text-gray-700',
-  REJECTED_BY_CUSTOMER: 'bg-red-100 text-red-700',
-  DEAL_CLOSED: 'bg-gray-100 text-gray-700',
-  OTP_VERIFIED: 'bg-emerald-100 text-emerald-700',
-  PENDING: 'bg-amber-100 text-amber-700',
-  PENDING_AGREEMENT: 'bg-amber-100 text-amber-700',
-  PENDING_ESTIMATE_AGREEMENT: 'bg-amber-100 text-amber-700',
-  PENDING_POST_ESTIMATION: 'bg-orange-100 text-orange-700',
-  PENDING_PURCHASE_AGREEMENT: 'bg-purple-100 text-purple-700',
-  PENDING_PAYMENT: 'bg-blue-100 text-blue-700',
-  CANCELLED: 'bg-red-100 text-red-700',
+  AGENT_ASSIGNED: 'bg-blue-50 text-blue-700 border-blue-200',
+  AGENT_ARRIVED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  AGENT_OFFER_SENT: 'bg-purple-50 text-purple-700 border-purple-200',
+  ADMIN_OFFER_SENT: 'bg-orange-50 text-orange-700 border-orange-200',
+  NEGOTIATING: 'bg-amber-50 text-amber-700 border-amber-200',
+  CUSTOMER_PENDING_ACCEPTANCE: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  COMPLETED: 'bg-slate-100 text-slate-700 border-slate-200',
+  REJECTED_BY_CUSTOMER: 'bg-red-50 text-red-700 border-red-200',
+  DEAL_CLOSED: 'bg-slate-100 text-slate-700 border-slate-200',
+  OTP_VERIFIED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  PENDING: 'bg-amber-50 text-amber-700 border-amber-200',
+  PENDING_AGREEMENT: 'bg-amber-50 text-amber-700 border-amber-200',
+  PENDING_ESTIMATE_AGREEMENT: 'bg-amber-50 text-amber-700 border-amber-200',
+  PENDING_POST_ESTIMATION: 'bg-orange-50 text-orange-700 border-orange-200',
+  PENDING_PURCHASE_AGREEMENT: 'bg-purple-50 text-purple-700 border-purple-200',
+  PENDING_PAYMENT: 'bg-blue-50 text-blue-700 border-blue-200',
+  CANCELLED: 'bg-red-50 text-red-700 border-red-200',
 };
 
 const statusLabel = (s) =>
@@ -85,7 +86,7 @@ export default function BranchOrders() {
   useEffect(() => {
     const t = setTimeout(() => {
       setDebouncedSearch(searchTerm);
-      setPage(1); // Reset to first page on new search
+      setPage(1);
     }, 400);
     return () => clearTimeout(t);
   }, [searchTerm]);
@@ -200,36 +201,36 @@ export default function BranchOrders() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-7xl mx-auto space-y-8 pb-12">
       <Toaster position="top-center" />
 
       {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-            <ShoppingBagIcon className="w-8 h-8 text-yellow-600" /> Orders
+          <h1 className="text-2xl font-semibold text-slate-900 tracking-tight flex items-center gap-2">
+            <ShoppingBagIcon className="w-7 h-7 text-slate-400" /> Branch Orders
           </h1>
-          <p className="text-gray-500 mt-1">
+          <p className="text-sm text-slate-500 mt-1">
             {total} order{total !== 1 ? 's' : ''} handled by this branch
           </p>
         </div>
         {totalPages > 1 && (
-          <span className="text-xs text-gray-500">
+          <span className="text-xs font-medium text-slate-500 bg-slate-50 border border-slate-200 px-3 py-1 rounded-md">
             Page {page} of {totalPages}
           </span>
         )}
       </div>
 
       {/* Search Bar */}
-      <div className="bg-white rounded-2xl shadow-md p-4">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-2">
         <div className="relative">
-          <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder="Search by customer name or order ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-yellow-500 outline-none transition"
+            className="w-full pl-10 pr-4 py-2 bg-transparent border-none focus:ring-0 outline-none text-sm text-slate-900 placeholder-slate-400"
           />
         </div>
       </div>
@@ -237,151 +238,140 @@ export default function BranchOrders() {
       {/* List */}
       {loading && orders.length === 0 ? (
         <div className="flex items-center justify-center h-64">
-          <div className="w-10 h-10 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
         </div>
       ) : orders.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-md p-12 text-center text-gray-500">
-          {debouncedSearch ? 'No orders found matching your search.' : 'No orders yet.'}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-12 text-center text-slate-500">
+          <ShoppingBagIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+          <p className="font-medium text-slate-700">
+            {debouncedSearch ? 'No orders found matching your search.' : 'No orders recorded yet.'}
+          </p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl shadow-md divide-y divide-gray-100 overflow-hidden">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           {loading && (
-            <div className="px-6 py-2 bg-yellow-50 text-xs text-yellow-700 flex items-center gap-2">
-              <div className="w-3 h-3 border-2 border-yellow-600 border-t-transparent rounded-full animate-spin" />
-              Loading…
+            <div className="px-6 py-2 bg-slate-50 border-b border-slate-100 text-xs text-slate-500 flex items-center gap-2">
+              <div className="w-3 h-3 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+              Refreshing…
             </div>
           )}
 
-          {orders.map((o) => {
-            const st = STATUS_STYLES[o.status] || 'bg-gray-100 text-gray-700';
-            const itemCount = o.items?.length || 0;
-            const isDirect = o.orderType === 'BRANCH_DIRECT';
+          <div className="divide-y divide-slate-100">
+            {orders.map((o) => {
+              const st = STATUS_STYLES[o.status] || 'bg-slate-100 text-slate-700 border-slate-200';
+              const itemCount = o.items?.length || 0;
+              const isDirect = o.orderType === 'BRANCH_DIRECT';
 
-            return (
-              <motion.button
-                key={o.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                onClick={() => openDetail(o)}
-                className="w-full text-left px-6 py-4 hover:bg-yellow-50/40 transition group"
-              >
-                <div className="flex justify-between items-start flex-wrap gap-3">
-                  <div className="flex gap-3 min-w-0 flex-1">
-                    {/* Tiny thumbnail from first item */}
-                    {(() => {
-                      const first = getImageUrls(o.items?.[0])[0];
-                      return (
-                        <div className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center">
-                          {first ? (
-                            <img
-                              src={first}
-                              alt=""
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <PhotoIcon className="w-6 h-6 text-gray-300" />
+              return (
+                <motion.button
+                  key={o.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  onClick={() => openDetail(o)}
+                  className="w-full text-left px-6 py-5 hover:bg-slate-50/80 transition-colors group"
+                >
+                  <div className="flex justify-between items-start flex-wrap gap-4">
+                    <div className="flex gap-4 min-w-0 flex-1">
+                      {/* Tiny thumbnail */}
+                      {(() => {
+                        const first = getImageUrls(o.items?.[0])[0];
+                        return (
+                          <div className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center">
+                            {first ? (
+                              <img src={first} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <PhotoIcon className="w-6 h-6 text-slate-300" />
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <p className="font-mono text-[11px] text-slate-400">
+                            #{o.id.slice(-8).toUpperCase()}
+                          </p>
+                          {isDirect && (
+                            <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                              Direct Purchase
+                            </span>
                           )}
                         </div>
-                      );
-                    })()}
-
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-mono text-xs text-gray-400">
-                          #{o.id.slice(-8).toUpperCase()}
+                        <p className="text-sm font-semibold text-slate-900 mt-0.5 truncate">
+                          {o.customer?.name || '—'}
+                          {o.customer?.phone && (
+                            <span className="text-slate-500 font-normal ml-1.5">
+                              ({o.customer.phone})
+                            </span>
+                          )}
                         </p>
-                        {isDirect && (
-                          <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide">
-                            Direct Purchase
+                        
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {isDirect ? 'Staff' : 'Agent'}:{' '}
+                          <span className="font-medium text-slate-700">
+                            {isDirect ? (o.staff?.name || '—') : (o.agent?.name || 'N/A')}
                           </span>
-                        )}
+                          {itemCount > 0 && (
+                            <span className="ml-1.5 text-slate-400">
+                              • {itemCount} item{itemCount !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          {new Date(o.createdAt).toLocaleString('en-GB')}
+                        </p>
                       </div>
-                      <p className="text-sm font-medium mt-0.5 truncate">
-                        {o.customer?.name || '—'}
-                        {o.customer?.phone && (
-                          <span className="text-gray-500 font-normal ml-1">
-                            ({o.customer.phone})
-                          </span>
-                        )}
-                      </p>
-                      
-                      <p className="text-xs text-gray-500">
-                        {isDirect ? 'Staff' : 'Agent'}:{' '}
-                        {isDirect 
-                          ? (o.staff?.name || '—') 
-                          : (o.agent?.name || 'N/A')}
-                        {itemCount > 0 && (
-                          <>
-                            {' '}
-                            • {itemCount} item{itemCount !== 1 ? 's' : ''}
-                          </>
-                        )}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {new Date(o.createdAt).toLocaleString()}
-                      </p>
                     </div>
-                  </div>
 
-                  <div className="text-right flex-shrink-0 flex flex-col items-end gap-1">
-                    <p className="font-bold">
-                      {o.weight?.toFixed(2)}g{' '}
-                      <span className="text-xs text-gray-500 font-normal">
-                        ({o.purity})
-                      </span>
-                    </p>
-                    <p className="text-sm text-green-600 font-semibold">
-                      ₹
-                      {(
-                        o.finalPrice ||
-                        o.agentOffer ||
-                        o.estimatedTotal ||
-                        0
-                      ).toFixed(2)}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full font-medium ${st}`}
-                      >
-                        {statusLabel(o.status)}
-                      </span>
-                      <ChevronRightIcon className="w-4 h-4 text-gray-300 group-hover:text-yellow-500 transition" />
+                    <div className="text-right flex-shrink-0 flex flex-col items-end gap-1.5">
+                      <p className="font-bold text-slate-900 text-sm">
+                        {o.weight?.toFixed(3)}g{' '}
+                        <span className="text-xs text-slate-500 font-medium">
+                          ({o.purity})
+                        </span>
+                      </p>
+                      <p className="text-sm text-slate-900 font-semibold">
+                        ₹{(o.finalPrice || o.agentOffer || o.estimatedTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wide border ${st}`}>
+                          {statusLabel(o.status)}
+                        </span>
+                        <ChevronRightIcon className="w-4 h-4 text-slate-300 group-hover:text-slate-600 transition-colors" />
+                      </div>
                     </div>
                   </div>
-                </div>
-              </motion.button>
-            );
-          })}
+                </motion.button>
+              );
+            })}
+          </div>
         </div>
       )}
 
       {/* Pagination */}
       {totalPages > 1 && !loading && (
-        <div className="flex flex-wrap items-center justify-center gap-1">
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-1.5">
           <button
             onClick={() => goToPage(page - 1)}
             disabled={page <= 1}
-            className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <ChevronLeftIcon className="w-4 h-4" /> Prev
           </button>
 
           {pageNumbers().map((p, idx) =>
             p === '...' ? (
-              <span
-                key={`e-${idx}`}
-                className="px-2 py-2 text-sm text-gray-400 select-none"
-              >
+              <span key={`e-${idx}`} className="px-2 py-1.5 text-sm text-slate-400 select-none">
                 …
               </span>
             ) : (
               <button
                 key={p}
                 onClick={() => goToPage(p)}
-                className={`min-w-[38px] px-3 py-2 rounded-lg text-sm font-medium transition ${
+                className={`min-w-[36px] px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                   p === page
-                    ? 'bg-gradient-to-r from-yellow-400 to-amber-500 text-black shadow-sm'
-                    : 'border border-gray-200 text-gray-700 hover:bg-gray-50'
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
                 }`}
               >
                 {p}
@@ -392,7 +382,7 @@ export default function BranchOrders() {
           <button
             onClick={() => goToPage(page + 1)}
             disabled={page >= totalPages}
-            className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             Next <ChevronRightIcon className="w-4 h-4" />
           </button>
@@ -406,34 +396,35 @@ export default function BranchOrders() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
             onClick={closeDetail}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
+              initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden"
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25 }}
+              className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+              <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-full bg-yellow-100 text-yellow-700 flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 text-slate-600 flex items-center justify-center flex-shrink-0 shadow-sm">
                     <ShoppingBagIcon className="w-5 h-5" />
                   </div>
                   <div className="min-w-0">
-                    <h2 className="text-lg font-bold text-gray-900">
+                    <h2 className="text-lg font-bold text-slate-900">
                       Order Details
                     </h2>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <p className="text-xs text-gray-500 font-mono">
+                      <p className="text-xs text-slate-500 font-mono">
                         #{selectedOrder.id.slice(-8).toUpperCase()}
                       </p>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                      <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold uppercase tracking-wider border ${
                         orderDetail?.orderType === 'BRANCH_DIRECT' 
-                          ? 'bg-purple-100 text-purple-700' 
-                          : 'bg-blue-100 text-blue-700'
+                          ? 'bg-indigo-50 text-indigo-700 border-indigo-200' 
+                          : 'bg-blue-50 text-blue-700 border-blue-200'
                       }`}>
                         {orderDetail?.orderType === 'BRANCH_DIRECT' ? 'Direct Purchase' : 'Agent Purchase'}
                       </span>
@@ -442,118 +433,89 @@ export default function BranchOrders() {
                 </div>
                 <button
                   onClick={closeDetail}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-slate-400 hover:text-slate-700 bg-white hover:bg-slate-100 p-2 rounded-lg border border-slate-200 transition-colors"
                 >
-                  <XMarkIcon className="w-6 h-6" />
+                  <XMarkIcon className="w-5 h-5" />
                 </button>
               </div>
 
               {/* Body */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 {detailLoading ? (
                   <div className="flex items-center justify-center h-40">
-                    <div className="w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-6 h-6 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : !orderDetail ? (
-                  <p className="text-center text-gray-500 py-8">
+                  <p className="text-center text-slate-500 py-8">
                     No detail available.
                   </p>
                 ) : (
                   <>
                     {/* Status + price cards */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3">
-                        <p className="text-[10px] uppercase tracking-wider text-yellow-700 font-semibold">
-                          Net Weight
-                        </p>
-                        <p className="text-xl font-bold text-yellow-800 mt-1">
-                          {(orderDetail.weight || 0).toFixed(2)}g
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500 font-bold mb-1">Net Weight</p>
+                        <p className="text-xl font-bold text-slate-900">
+                          {(orderDetail.weight || 0).toFixed(3)}<span className="text-sm font-normal text-slate-500">g</span>
                         </p>
                       </div>
-                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
-                        <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
-                          Purity
-                        </p>
-                        <p className="text-xl font-bold text-gray-900 mt-1">
+                      <div className="bg-white border border-slate-200 shadow-sm rounded-xl p-4">
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500 font-bold mb-1">Purity</p>
+                        <p className="text-xl font-bold text-slate-900">
                           {orderDetail.purity || '—'}
                         </p>
                       </div>
-                      <div className="bg-green-50 border border-green-200 rounded-xl p-3">
-                        <p className="text-[10px] uppercase tracking-wider text-green-700 font-semibold">
-                          Final Price
-                        </p>
-                        <p className="text-xl font-bold text-green-800 mt-1">
-                          ₹
-                          {(
-                            orderDetail.finalPrice ||
-                            orderDetail.agentOffer ||
-                            orderDetail.estimatedTotal ||
-                            0
-                          ).toFixed(2)}
+                      <div className="bg-white border border-slate-200 shadow-sm rounded-xl p-4 border-l-4 border-l-emerald-500">
+                        <p className="text-[10px] uppercase tracking-wide text-emerald-700 font-bold mb-1">Final Price</p>
+                        <p className="text-xl font-bold text-slate-900">
+                          ₹{(orderDetail.finalPrice || orderDetail.agentOffer || orderDetail.estimatedTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </p>
                       </div>
                     </div>
 
                     {/* Status bar */}
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`text-xs px-3 py-1 rounded-full font-medium ${
-                          STATUS_STYLES[orderDetail.status] ||
-                          'bg-gray-100 text-gray-700'
-                        }`}
-                      >
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`text-[11px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wide border ${
+                          STATUS_STYLES[orderDetail.status] || 'bg-slate-100 text-slate-700 border-slate-200'
+                        }`}>
                         {statusLabel(orderDetail.status)}
                       </span>
                       {orderDetail.isPledged && (
-                        <span className="text-xs bg-rose-100 text-rose-700 px-3 py-1 rounded-full font-medium">
+                        <span className="text-[11px] bg-rose-50 text-rose-700 border border-rose-200 px-2.5 py-1 rounded-md font-bold uppercase tracking-wide">
                           🔒 Pledged
                         </span>
                       )}
                       {orderDetail.orderType === 'BRANCH_DIRECT' && orderDetail.cancelledAt && (
-                        <span className="text-xs bg-red-100 text-red-700 px-3 py-1 rounded-full font-medium">
+                        <span className="text-[11px] bg-red-50 text-red-700 border border-red-200 px-2.5 py-1 rounded-md font-bold uppercase tracking-wide">
                           Cancelled: {orderDetail.cancelReason || 'No reason'}
                         </span>
                       )}
                     </div>
 
                     {/* Customer + Agent/Staff */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                        <div className="flex items-center gap-2 mb-1">
-                          <UserCircleIcon className="w-4 h-4 text-gray-500" />
-                          <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
-                            Customer
-                          </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <UserCircleIcon className="w-4 h-4 text-slate-500" />
+                          <p className="text-[10px] uppercase tracking-wide text-slate-500 font-bold">Customer</p>
                         </div>
-                        <p className="font-semibold text-gray-900">
-                          {orderDetail.customer?.name || '—'}
-                        </p>
-                        {orderDetail.customer?.phone && (
-                          <p className="text-xs text-gray-500">
-                            {orderDetail.customer.phone}
-                          </p>
-                        )}
+                        <p className="font-semibold text-slate-900 text-sm">{orderDetail.customer?.name || '—'}</p>
+                        {orderDetail.customer?.phone && <p className="text-xs text-slate-500 mt-0.5">{orderDetail.customer.phone}</p>}
                         {orderDetail.customer?.aadhaarNumber && (
-                          <p className="text-[10px] text-gray-400 mt-0.5 font-mono">
-                            Aadhaar: •••• {orderDetail.customer.aadhaarNumber.slice(-4)}
-                          </p>
+                          <p className="text-[10px] text-slate-400 mt-1 font-mono">Aadhaar: •••• {orderDetail.customer.aadhaarNumber.slice(-4)}</p>
                         )}
                       </div>
 
-                      <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-                        <div className="flex items-center gap-2 mb-1">
-                          <UserCircleIcon className="w-4 h-4 text-gray-500" />
-                          <p className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
-                            {orderDetail.orderType === 'BRANCH_DIRECT' ? 'Staff' : 'Agent'}
-                          </p>
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <UserCircleIcon className="w-4 h-4 text-slate-500" />
+                          <p className="text-[10px] uppercase tracking-wide text-slate-500 font-bold">{orderDetail.orderType === 'BRANCH_DIRECT' ? 'Staff' : 'Agent'}</p>
                         </div>
-                        <p className="font-semibold text-gray-900">
-                          {orderDetail.orderType === 'BRANCH_DIRECT' 
-                            ? (orderDetail.staff?.name || '—') 
-                            : (orderDetail.agent?.name || '—')}
+                        <p className="font-semibold text-slate-900 text-sm">
+                          {orderDetail.orderType === 'BRANCH_DIRECT' ? (orderDetail.staff?.name || '—') : (orderDetail.agent?.name || '—')}
                         </p>
                         {(orderDetail.orderType === 'BRANCH_DIRECT' ? orderDetail.staff?.phone : orderDetail.agent?.phone) && (
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-slate-500 mt-0.5">
                             {orderDetail.orderType === 'BRANCH_DIRECT' ? orderDetail.staff.phone : orderDetail.agent.phone}
                           </p>
                         )}
@@ -561,71 +523,58 @@ export default function BranchOrders() {
                     </div>
 
                     {/* Price breakdown */}
-                    <div className="bg-gray-50 rounded-xl p-3 border border-gray-100 space-y-1.5 text-sm">
+                    <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm space-y-2 text-sm">
                       {orderDetail.estimatedTotal != null && (
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Estimated</span>
-                          <span className="font-medium text-gray-800">
-                            ₹{orderDetail.estimatedTotal.toFixed(2)}
-                          </span>
+                          <span className="text-slate-500">Estimated</span>
+                          <span className="font-medium text-slate-800">₹{orderDetail.estimatedTotal.toFixed(2)}</span>
                         </div>
                       )}
                       {orderDetail.agentOffer != null && (
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Agent Offer</span>
-                          <span className="font-medium text-gray-800">
-                            ₹{orderDetail.agentOffer.toFixed(2)}
-                          </span>
+                          <span className="text-slate-500">Agent Offer</span>
+                          <span className="font-medium text-slate-800">₹{orderDetail.agentOffer.toFixed(2)}</span>
                         </div>
                       )}
                       {orderDetail.adminOffer != null && (
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Admin Offer</span>
-                          <span className="font-medium text-gray-800">
-                            ₹{orderDetail.adminOffer.toFixed(2)}
-                          </span>
+                          <span className="text-slate-500">Admin Offer</span>
+                          <span className="font-medium text-slate-800">₹{orderDetail.adminOffer.toFixed(2)}</span>
                         </div>
                       )}
                       {orderDetail.finalPrice != null && (
-                        <div className="flex justify-between pt-1.5 border-t border-gray-200">
-                          <span className="text-gray-700 font-semibold">
-                            Final Price
-                          </span>
-                          <span className="font-bold text-green-700">
-                            ₹{orderDetail.finalPrice.toFixed(2)}
-                          </span>
+                        <div className="flex justify-between pt-2 mt-1 border-t border-slate-200">
+                          <span className="text-slate-900 font-bold">Final Price</span>
+                          <span className="font-bold text-emerald-600">₹{orderDetail.finalPrice.toFixed(2)}</span>
                         </div>
                       )}
                     </div>
 
                     {/* PAYMENT DETAILS (Direct Purchases) */}
                     {orderDetail.orderType === 'BRANCH_DIRECT' && (orderDetail.paymentMode || orderDetail.paymentDetails) && (
-                      <div className="bg-gray-50 rounded-xl p-3 border border-gray-100 space-y-2">
-                        <p className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
-                          <CurrencyRupeeIcon className="w-4 h-4 text-gray-500" /> Payment Details
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-2">
+                        <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5 uppercase tracking-wide">
+                          <CurrencyRupeeIcon className="w-4 h-4 text-slate-500" /> Payment Details
                         </p>
                         
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">Mode</span>
-                          <span className="font-semibold flex items-center gap-1 text-gray-900">
-                            {orderDetail.paymentMode}
-                          </span>
+                        <div className="flex justify-between text-sm pt-1">
+                          <span className="text-slate-500">Mode</span>
+                          <span className="font-semibold flex items-center gap-1 text-slate-900">{orderDetail.paymentMode}</span>
                         </div>
 
                         {orderDetail.paymentReference && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-500">Reference</span>
-                            <span className="font-mono text-gray-800 bg-white px-2 py-0.5 rounded border text-xs">{orderDetail.paymentReference}</span>
+                          <div className="flex justify-between text-sm items-center">
+                            <span className="text-slate-500">Reference</span>
+                            <span className="font-mono text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200 text-xs">{orderDetail.paymentReference}</span>
                           </div>
                         )}
 
-                        {/* Dynamic details block */}
                         {orderDetail.paymentDetails && (
-                          <div className="mt-2 pt-2 border-t border-gray-200 space-y-1">
+                          <div className="mt-2 pt-2 border-t border-slate-200 space-y-1">
                             {Object.entries(orderDetail.paymentDetails).map(([k, v]) => (
                               <div key={k} className="flex justify-between text-xs">
-                                <span className="text-gray-400 capitalize">{k.replace(/([A-Z])/g, ' $1')}</span>
-                                <span className="font-medium text-gray-700">{v}</span>
+                                <span className="text-slate-400 capitalize">{k.replace(/([A-Z])/g, ' $1')}</span>
+                                <span className="font-medium text-slate-700">{v}</span>
                               </div>
                             ))}
                           </div>
@@ -635,39 +584,37 @@ export default function BranchOrders() {
 
                     {/* DOCUMENTS (Direct Purchases) */}
                     {orderDetail.orderType === 'BRANCH_DIRECT' && (
-                      <div className="bg-white rounded-xl p-3 border border-gray-200">
-                        <p className="text-xs font-semibold text-gray-700 mb-3">Documents</p>
+                      <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm">
+                        <p className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-3">Documents</p>
                         <div className="flex flex-col gap-2">
-                          {/* Estimate Agreement */}
                           {orderDetail.estimateAgreementUrl ? (
                             <a
                               href={orderDetail.estimateAgreementUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-2 text-xs bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg text-amber-800 hover:bg-amber-100 transition font-medium"
+                              className="flex items-center gap-2 text-sm bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition font-medium"
                             >
-                              <DocumentTextIcon className="w-4 h-4" /> 1. Signed Estimate Agreement
-                              <ArrowDownTrayIcon className="w-3.5 h-3.5 ml-auto" />
+                              <DocumentTextIcon className="w-4 h-4 text-slate-500" /> 1. Signed Estimate Agreement
+                              <ArrowDownTrayIcon className="w-4 h-4 ml-auto text-slate-400" />
                             </a>
                           ) : (
-                            <span className="text-xs bg-gray-50 border border-gray-100 px-3 py-2 rounded-lg text-gray-400 italic">
+                            <span className="text-sm bg-slate-50 border border-slate-100 px-3 py-2.5 rounded-lg text-slate-400 italic">
                               1. Estimate Agreement not uploaded
                             </span>
                           )}
 
-                          {/* Final Purchase Agreement */}
                           {orderDetail.purchaseAgreementUrl ? (
                             <a
                               href={orderDetail.purchaseAgreementUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-2 text-xs bg-blue-50 border border-blue-200 px-3 py-2 rounded-lg text-blue-800 hover:bg-blue-100 transition font-medium"
+                              className="flex items-center gap-2 text-sm bg-slate-50 border border-slate-200 px-3 py-2.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition font-medium"
                             >
-                              <DocumentTextIcon className="w-4 h-4" /> 2. Signed Final Purchase Agreement
-                              <ArrowDownTrayIcon className="w-3.5 h-3.5 ml-auto" />
+                              <DocumentTextIcon className="w-4 h-4 text-slate-500" /> 2. Signed Final Purchase Agreement
+                              <ArrowDownTrayIcon className="w-4 h-4 ml-auto text-slate-400" />
                             </a>
                           ) : (
-                            <span className="text-xs bg-gray-50 border border-gray-100 px-3 py-2 rounded-lg text-gray-400 italic">
+                            <span className="text-sm bg-slate-50 border border-slate-100 px-3 py-2.5 rounded-lg text-slate-400 italic">
                               2. Final Purchase Agreement not uploaded
                             </span>
                           )}
@@ -676,13 +623,9 @@ export default function BranchOrders() {
                     )}
 
                     {orderDetail.comment && (
-                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-                        <p className="text-[10px] uppercase tracking-wider text-amber-700 font-semibold mb-1">
-                          Comment
-                        </p>
-                        <p className="text-sm text-gray-800 whitespace-pre-line">
-                          {orderDetail.comment}
-                        </p>
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                        <p className="text-[10px] uppercase tracking-wide text-amber-700 font-bold mb-1">Comment</p>
+                        <p className="text-sm text-slate-800 whitespace-pre-line">{orderDetail.comment}</p>
                       </div>
                     )}
 
@@ -690,23 +633,18 @@ export default function BranchOrders() {
                     {detailSummary && detailSummary.itemCount > 0 && (
                       <div>
                         <div className="flex items-center justify-between mb-3">
-                          <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                            <DocumentTextIcon className="w-4 h-4 text-gray-500" />
-                            Items ({detailSummary.itemCount})
+                          <p className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                            <DocumentTextIcon className="w-4 h-4 text-slate-500" /> Items ({detailSummary.itemCount})
                           </p>
                           <button
                             type="button"
                             onClick={() => setExpandedItems((v) => !v)}
-                            className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                            className="text-xs font-medium text-slate-600 hover:text-slate-900 flex items-center gap-1 border border-slate-200 px-2.5 py-1 rounded-md bg-white hover:bg-slate-50 transition-colors"
                           >
                             {expandedItems ? (
-                              <>
-                                <ChevronUpIcon className="w-3.5 h-3.5" /> Collapse
-                              </>
+                              <><ChevronUpIcon className="w-3.5 h-3.5" /> Collapse</>
                             ) : (
-                              <>
-                                <ChevronDownIcon className="w-3.5 h-3.5" /> Expand
-                              </>
+                              <><ChevronDownIcon className="w-3.5 h-3.5" /> Expand</>
                             )}
                           </button>
                         </div>
@@ -714,100 +652,51 @@ export default function BranchOrders() {
                         {expandedItems && (
                           <>
                             {/* Item totals strip */}
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-                              <div className="bg-gray-50 rounded-lg p-2 border border-gray-100 text-center">
-                                <p className="text-[10px] text-gray-500">Gross</p>
-                                <p className="text-sm font-semibold">
-                                  {detailSummary.totalGross.toFixed(2)}g
-                                </p>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 text-center">
+                                <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide mb-1">Gross</p>
+                                <p className="text-sm font-bold text-slate-900">{detailSummary.totalGross.toFixed(3)}g</p>
                               </div>
-                              <div className="bg-gray-50 rounded-lg p-2 border border-gray-100 text-center">
-                                <p className="text-[10px] text-gray-500">Net</p>
-                                <p className="text-sm font-bold text-yellow-700">
-                                  {detailSummary.totalNet.toFixed(2)}g
-                                </p>
+                              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 text-center">
+                                <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide mb-1">Net</p>
+                                <p className="text-sm font-bold text-slate-900">{detailSummary.totalNet.toFixed(3)}g</p>
                               </div>
-                              <div className="bg-gray-50 rounded-lg p-2 border border-gray-100 text-center">
-                                <p className="text-[10px] text-gray-500">Pieces</p>
-                                <p className="text-sm font-semibold">
-                                  {detailSummary.totalPieces}
-                                </p>
+                              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 text-center">
+                                <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide mb-1">Pieces</p>
+                                <p className="text-sm font-bold text-slate-900">{detailSummary.totalPieces}</p>
                               </div>
-                              <div className="bg-gray-50 rounded-lg p-2 border border-gray-100 text-center">
-                                <p className="text-[10px] text-gray-500">Purity</p>
-                                <p className="text-sm font-semibold">
-                                  {Object.keys(detailSummary.byPurity).join(', ')}
-                                </p>
+                              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 text-center">
+                                <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide mb-1">Purity</p>
+                                <p className="text-sm font-bold text-slate-900 truncate">{Object.keys(detailSummary.byPurity).join(', ')}</p>
                               </div>
                             </div>
 
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                               {orderDetail.items.map((item, i) => {
                                 const images = getImageUrls(item);
                                 return (
-                                  <div
-                                    key={item.id || i}
-                                    className="flex gap-3 bg-gray-50 rounded-xl p-3 border border-gray-100"
-                                  >
-                                    <ItemImageCarousel
-                                      images={images}
-                                      alt={item.name}
-                                      onPreview={setPreviewImage}
-                                      size={64}
-                                    />
+                                  <div key={item.id || i} className="flex gap-4 bg-slate-50 rounded-xl p-4 border border-slate-200">
+                                    <ItemImageCarousel images={images} alt={item.name} onPreview={setPreviewImage} size={64} />
 
                                     <div className="flex-1 min-w-0">
                                       <div className="flex items-center justify-between gap-2">
-                                        <p className="font-medium text-sm text-gray-900 truncate">
+                                        <p className="font-semibold text-sm text-slate-900 truncate">
                                           {item.name}
-                                          {item.purity && (
-                                            <span className="ml-1 text-[10px] text-gray-500 font-normal">
-                                              ({item.purity})
-                                            </span>
-                                          )}
+                                          {item.purity && <span className="ml-1 text-[10px] text-slate-500 font-normal">({item.purity})</span>}
                                         </p>
-                                        <span className="text-xs text-gray-500 whitespace-nowrap">
-                                          ×{item.count || 1}
-                                        </span>
-                                      </div>
-                                      <div className="mt-1 grid grid-cols-4 gap-1 text-[10px] text-gray-600">
-                                        <div>
-                                          <span className="text-gray-400 block">
-                                            Gross
-                                          </span>
-                                          <span className="font-semibold">
-                                            {(item.grossWeight || 0).toFixed(2)}
-                                          </span>
-                                        </div>
-                                        <div>
-                                          <span className="text-gray-400 block">
-                                            Stone
-                                          </span>
-                                          <span className="font-semibold">
-                                            {(item.stoneWeight || 0).toFixed(2)}
-                                          </span>
-                                        </div>
-                                        <div>
-                                          <span className="text-gray-400 block">
-                                            Dust
-                                          </span>
-                                          <span className="font-semibold">
-                                            {(item.dustWeight || 0).toFixed(2)}
-                                          </span>
-                                        </div>
-                                        <div>
-                                          <span className="text-yellow-700 block font-medium">
-                                            Net
-                                          </span>
-                                          <span className="font-bold text-yellow-700">
-                                            {(item.netWeight || 0).toFixed(2)}
-                                          </span>
-                                        </div>
+                                        <span className="text-xs font-medium text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">×{item.count || 1}</span>
                                       </div>
                                       
-                                      {/* Pre-Estimation Badge (Direct Purchase only) */}
+                                      <div className="mt-2 grid grid-cols-4 gap-2 text-[10px] text-slate-600">
+                                        <div><span className="text-slate-400 block mb-0.5">Gross</span><span className="font-semibold text-slate-800">{(item.grossWeight || 0).toFixed(2)}</span></div>
+                                        <div><span className="text-slate-400 block mb-0.5">Stone</span><span className="font-semibold text-slate-800">{(item.stoneWeight || 0).toFixed(2)}</span></div>
+                                        <div><span className="text-slate-400 block mb-0.5">Dust</span><span className="font-semibold text-slate-800">{(item.dustWeight || 0).toFixed(2)}</span></div>
+                                        <div><span className="text-slate-900 block font-bold mb-0.5">Net</span><span className="font-bold text-slate-900">{(item.netWeight || 0).toFixed(2)}</span></div>
+                                      </div>
+                                      
+                                      {/* Pre-Estimation Badge */}
                                       {item.preEstimationGrossWeight != null && (
-                                        <div className="mt-1.5 inline-block text-[10px] bg-orange-50 text-orange-800 px-2 py-1 rounded border border-orange-100">
+                                        <div className="mt-2.5 inline-block text-[10px] bg-amber-50 text-amber-800 px-2 py-1 rounded-md border border-amber-200 font-medium">
                                           Pre-Est: <strong>{parseFloat(item.preEstimationGrossWeight).toFixed(2)}g</strong>
                                         </div>
                                       )}
@@ -825,10 +714,10 @@ export default function BranchOrders() {
               </div>
 
               {/* Footer */}
-              <div className="border-t border-gray-100 bg-white px-6 py-4 flex justify-end">
+              <div className="border-t border-slate-200 bg-slate-50 px-6 py-4 flex justify-end">
                 <button
                   onClick={closeDetail}
-                  className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-2.5 px-6 rounded-xl"
+                  className="bg-white border border-slate-300 text-slate-700 font-medium py-2.5 px-6 rounded-lg hover:bg-slate-100 transition-colors text-sm shadow-sm"
                 >
                   Close
                 </button>
@@ -845,14 +734,14 @@ export default function BranchOrders() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/95 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+            className="fixed inset-0 bg-slate-900/95 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
             onClick={() => setPreviewImage(null)}
           >
             <button
               onClick={() => setPreviewImage(null)}
-              className="absolute top-4 right-4 text-white hover:text-yellow-400 p-2 rounded-full bg-white/10"
+              className="absolute top-6 right-6 text-slate-400 hover:text-white p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
             >
-              <XMarkIcon className="w-8 h-8" />
+              <XMarkIcon className="w-6 h-6" />
             </button>
             <img
               src={previewImage}

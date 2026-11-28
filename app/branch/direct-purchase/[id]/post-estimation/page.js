@@ -7,6 +7,7 @@ import {
   FireIcon,
   ArrowPathIcon,
   CheckCircleIcon,
+  InformationCircleIcon,
 } from '@heroicons/react/24/outline';
 
 export default function PostEstimationPage() {
@@ -44,6 +45,14 @@ export default function PostEstimationPage() {
     }
   }, []);
 
+  const calculatedPreEstimate = order?.items?.reduce((sum, item) => {
+  const preG = parseFloat(item.preEstimationGrossWeight) || 0;
+  const rate = parseFloat(item.ratePerGram) || 0;
+  return sum + (preG * rate);
+}, 0);
+
+const displayEstimate = order?.estimatedTotal > 0 ? order.estimatedTotal : calculatedPreEstimate;
+
   // ─────────────────────────────────────────────
   // 2. Load order details + rate on mount
   // ─────────────────────────────────────────────
@@ -60,24 +69,31 @@ export default function PostEstimationPage() {
         setOrder(orderRes.order);
 
         // Initialize items with existing post-est data (or blanks)
-        const initItems = orderRes.order.items.map((it) => ({
-          id: it.id,
-          name: it.name,
-          purity: it.purity,
-          count: it.count,
-          preEstimationGrossWeight: it.preEstimationGrossWeight,
-          // Post-estimation fields (pre-fill if already set)
-          grossWeight: it.grossWeight || '',
-          stoneWeight: it.stoneWeight || '',
-          dustWeight: it.dustWeight || '',
-          netWeight: it.netWeight || '',
-          ratePerGram: it.ratePerGram || '',
-          itemPrice: it.itemPrice || '',
-        }));
+        const initItems = orderRes.order.items.map((it) => {
+          const preG = parseFloat(it.preEstimationGrossWeight) || 0;
+          const g = parseFloat(it.grossWeight) || 0;
+          
+          // Auto-calculate dust for existing data
+          const calculatedDust = it.grossWeight ? Math.max(0, preG - g).toFixed(2) : '';
+
+          return {
+            id: it.id,
+            name: it.name,
+            purity: it.purity,
+            count: it.count,
+            preEstimationGrossWeight: it.preEstimationGrossWeight,
+            // Post-estimation fields
+            grossWeight: it.grossWeight || '',
+            stoneWeight: it.stoneWeight || '',
+            dustWeight: it.dustWeight || calculatedDust,
+            netWeight: it.netWeight || '',
+            ratePerGram: it.ratePerGram || '',
+            itemPrice: it.itemPrice || '',
+          };
+        });
 
         if (rateRes.success && rateRes.rate?.rates) {
           setGoldRate(rateRes.rate);
-          // Auto-fill rate for items that don't have one yet
           const withRates = initItems.map((it) => {
             if (!it.ratePerGram) {
               const r = rateRes.rate.rates[it.purity] || 0;
@@ -112,7 +128,6 @@ export default function PostEstimationPage() {
     if (!goldRate?.rates) return;
     setItems((prev) =>
       prev.map((item) => {
-        // Only auto-fill if the rate is empty (don't override manual entries)
         if (!item.ratePerGram) {
           const r = goldRate.rates[item.purity] || 0;
           const net = parseFloat(item.netWeight) || 0;
@@ -128,7 +143,7 @@ export default function PostEstimationPage() {
   }, [goldRate]);
 
   // ─────────────────────────────────────────────
-  // 4. Update item — recalculate net & price
+  // 4. Update item — ✅ NEW AUTO-CALCULATION LOGIC
   // ─────────────────────────────────────────────
   const updateItem = (index, field, value) => {
     setItems((prev) => {
@@ -142,17 +157,30 @@ export default function PostEstimationPage() {
         item.ratePerGram = newRate;
       }
 
-      // Recalculate net weight and item price
+      // Recalculate weights if gross, stone, purity, or rate changes
       if (
-        ['grossWeight', 'stoneWeight', 'dustWeight', 'ratePerGram', 'purity'].includes(field)
+        ['grossWeight', 'stoneWeight', 'ratePerGram', 'purity'].includes(field)
       ) {
+        const preG = parseFloat(item.preEstimationGrossWeight) || 0;
         const g = parseFloat(item.grossWeight) || 0;
         const s = parseFloat(item.stoneWeight) || 0;
-        const d = parseFloat(item.dustWeight) || 0;
         const r = parseFloat(item.ratePerGram) || 0;
-        const net = Math.max(0, g - s - d);
 
+        // 1. Auto-calculate Dust (Wastage)
+        // Only calculate if a gross weight has been entered
+        if (item.grossWeight !== '') {
+          const dust = Math.max(0, preG - g);
+          item.dustWeight = dust.toFixed(2);
+        } else {
+          item.dustWeight = '';
+        }
+
+        // 2. Calculate Net Weight 
+        // (Current Gross minus Stone. Dust is already lost from the Gross).
+        const net = Math.max(0, g - s);
         item.netWeight = net.toFixed(2);
+        
+        // 3. Calculate Final Amount
         item.itemPrice = (net * r).toFixed(2);
       }
 
@@ -184,7 +212,7 @@ export default function PostEstimationPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      toast.success('Post-estimation saved.  Proceeding to Final Agreement...');
+      toast.success('Post-estimation saved. Proceeding to Final Agreement...');
       router.push(`/branch/direct-purchase/${id}/agreement`);
     } catch (err) {
       toast.error(err.message);
@@ -249,6 +277,21 @@ export default function PostEstimationPage() {
         )}
       </div>
 
+      {/* ✅ NEW: Permanent Original Estimate Banner */}
+      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+  <div className="flex items-center gap-3">
+    <InformationCircleIcon className="w-8 h-8 text-blue-500 flex-shrink-0" />
+    <div>
+      <p className="text-sm font-bold text-blue-900">Original Pre-Estimation Amount</p>
+      <p className="text-xs text-blue-700">This is the value quoted to the customer before melting.</p>
+    </div>
+  </div>
+  <div className="text-right sm:text-right w-full sm:w-auto">
+    {/* ✅ Uses the fallback calculation */}
+    <p className="text-2xl font-black text-blue-800">₹ {displayEstimate.toFixed(2)}</p>
+  </div>
+</div>
+
       {/* Items */}
       {items.map((item, idx) => (
         <div
@@ -274,7 +317,7 @@ export default function PostEstimationPage() {
             )}
           </div>
 
-          {/* Purity selector (in case staff needs to adjust) */}
+          {/* Purity selector */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-[10px] text-gray-500 uppercase font-bold block mb-1">
@@ -321,7 +364,7 @@ export default function PostEstimationPage() {
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <div>
-                <label className="text-[10px] text-gray-500 block mb-1">Gross (g)</label>
+                <label className="text-[10px] text-gray-500 block mb-1">Current Gross (g)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -342,17 +385,18 @@ export default function PostEstimationPage() {
                   className="border rounded-lg px-2 py-2 text-sm w-full focus:border-green-500 outline-none"
                 />
               </div>
+              
+              {/* ✅ NEW: Read-Only Dust Field */}
               <div>
-                <label className="text-[10px] text-gray-500 block mb-1">Dust (g)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="0"
-                  value={item.dustWeight}
-                  onChange={(e) => updateItem(idx, 'dustWeight', e.target.value)}
-                  className="border rounded-lg px-2 py-2 text-sm w-full focus:border-green-500 outline-none"
-                />
+                <label className="text-[10px] text-gray-500 block mb-1 flex items-center gap-1">
+                  Dust / Wastage 
+                  <span className="text-[9px] bg-gray-200 text-gray-600 px-1 rounded">Auto</span>
+                </label>
+                <div className="border border-gray-300 bg-gray-100 rounded-lg px-2 py-2 text-sm font-bold text-gray-600 text-center">
+                  {item.dustWeight || '0.00'}
+                </div>
               </div>
+
               <div>
                 <label className="text-[10px] text-green-700 font-bold block mb-1">
                   Net (g)
@@ -370,7 +414,7 @@ export default function PostEstimationPage() {
       <div className="bg-gray-900 text-white rounded-2xl p-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-xs text-gray-400 uppercase tracking-wider">
-            Calculated Total
+            Calculated Final Total
           </p>
           <p className="text-3xl font-bold text-yellow-400 mt-1">₹ {calculateTotal()}</p>
         </div>

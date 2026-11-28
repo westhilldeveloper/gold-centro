@@ -6,21 +6,32 @@ import toast from 'react-hot-toast';
 export default function CameraCaptureModal({ isOpen, onClose, onCapture }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const [stream, setStream] = useState(null);
-  const [facingMode, setFacingMode] = useState('environment'); // 'user' for front, 'environment' for back
+  
+  // ✅ Use a ref to hold the stream so we always have access to the CURRENT stream
+  const streamRef = useRef(null); 
+  const [facingMode, setFacingMode] = useState('environment');
+
+  // ✅ Helper to ensure all hardware tracks are stopped
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+  };
 
   useEffect(() => {
     if (!isOpen) return;
 
     const startCamera = async () => {
+      stopCamera(); // Stop any old stream before starting a new one
+
       try {
-        if (stream) {
-          stream.getTracks().forEach((track) => track.stop());
-        }
         const newStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: facingMode },
         });
-        setStream(newStream);
+        
+        streamRef.current = newStream;
+        
         if (videoRef.current) {
           videoRef.current.srcObject = newStream;
         }
@@ -33,10 +44,9 @@ export default function CameraCaptureModal({ isOpen, onClose, onCapture }) {
 
     startCamera();
 
+    // Cleanup: runs when isOpen becomes false or facingMode changes
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
+      stopCamera();
     };
   }, [isOpen, facingMode]);
 
@@ -50,21 +60,30 @@ export default function CameraCaptureModal({ isOpen, onClose, onCapture }) {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     
-    // Set canvas dimensions to match video stream
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    // Convert to Blob/File
     canvas.toBlob((blob) => {
       if (blob) {
         const file = new File([blob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        
+        // ✅ 1. STOP THE CAMERA IMMEDIATELY after the photo is taken
+        stopCamera();
+        
+        // ✅ 2. Send the file and close
         onCapture(file);
         onClose();
       }
-    }, 'image/jpeg', 0.85); // 0.85 quality to keep file size reasonable
+    }, 'image/jpeg', 0.85); 
+  };
+
+  // ✅ Custom close handler to ensure camera stops if user clicks the "X" button
+  const handleClose = () => {
+    stopCamera();
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -76,7 +95,7 @@ export default function CameraCaptureModal({ isOpen, onClose, onCapture }) {
         {/* Header */}
         <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/60 to-transparent">
           <p className="text-white font-medium">Capture Photo</p>
-          <button onClick={onClose} className="text-white hover:text-red-400 p-2 bg-black/40 rounded-full backdrop-blur-sm">
+          <button onClick={handleClose} className="text-white hover:text-red-400 p-2 bg-black/40 rounded-full backdrop-blur-sm">
             <XMarkIcon className="w-6 h-6" />
           </button>
         </div>

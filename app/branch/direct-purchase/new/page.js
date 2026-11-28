@@ -10,7 +10,10 @@ import {
   UserIcon, 
   CubeIcon, 
   CheckCircleIcon,
-  ExclamationCircleIcon
+  ExclamationCircleIcon,
+  ArrowRightIcon,
+  ArrowLeftIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 import CameraCaptureModal from '../../../components/CameraCaptureModal';
 
@@ -18,7 +21,7 @@ export default function NewDirectPurchase() {
   const { user } = useAuth();
   const router = useRouter();
   
-  const [step, setStep] = useState(1); // 1: Customer, 2: Pre-Estimation
+  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [goldRate, setGoldRate] = useState(null);
   
@@ -37,8 +40,7 @@ export default function NewDirectPurchase() {
     profilePhoto: '', aadhaarFront: '', aadhaarBack: '', panFront: ''
   });
   
-  // Item State (Only Pre-Estimation fields now)
-  // Added ratePerGram and itemPrice to initial state
+  // Item State
   const [items, setItems] = useState([
     { 
       name: 'Bangle', 
@@ -66,7 +68,6 @@ export default function NewDirectPurchase() {
     fetchRates();
   }, []);
 
-  // EDGE CASE FIX: If rates load AFTER the user has typed a weight, recalculate.
   useEffect(() => {
     if (!goldRate?.rates) return;
     
@@ -74,7 +75,6 @@ export default function NewDirectPurchase() {
       const rate = goldRate.rates[item.purity] || 0;
       const preGross = parseFloat(item.preEstimationGrossWeight) || 0;
       
-      // Only update if there is a weight entered
       if (preGross > 0) {
         return {
           ...item,
@@ -89,9 +89,14 @@ export default function NewDirectPurchase() {
   const handlePhoneChange = (e) => {
     const rawPhone = e.target.value.replace(/\D/g, '');
     
-    setCustomer({ ...customer, phone: rawPhone });
-    setIsExistingCustomer(false);
-    setCustomerNotFound(false);
+    if (rawPhone !== customer.phone) {
+      setIsExistingCustomer(false);
+      setCustomerNotFound(false);
+      setCustomer({
+        name: '', phone: rawPhone, aadhaarNumber: '', panNumber: '', 
+        profilePhoto: '', aadhaarFront: '', aadhaarBack: '', panFront: ''
+      });
+    }
 
     if (rawPhone.length === 10) {
       lookupCustomer(rawPhone);
@@ -118,9 +123,14 @@ export default function NewDirectPurchase() {
           aadhaarBack: data.customer.aadhaarBack || '',
           panFront: data.customer.panFront || '',
         }));
-        toast.success('Existing customer details loaded');
+        toast.success('Existing customer loaded');
       } else {
+        setIsExistingCustomer(false);
         setCustomerNotFound(true);
+        setCustomer({
+          name: '', phone: phone, aadhaarNumber: '', panNumber: '', 
+          profilePhoto: '', aadhaarFront: '', aadhaarBack: '', panFront: ''
+        });
       }
     } catch (err) {
       console.error(err);
@@ -178,7 +188,6 @@ export default function NewDirectPurchase() {
     const newItems = [...items];
     newItems[index][field] = value;
 
-    // Auto-calculate Estimated Price based on Pre-Gross Weight and Live Rate
     if (['preEstimationGrossWeight', 'purity'].includes(field)) {
       const preGross = parseFloat(newItems[index].preEstimationGrossWeight) || 0;
       const purity = newItems[index].purity || '22K';
@@ -192,8 +201,24 @@ export default function NewDirectPurchase() {
   };
 
   const handleSubmit = async () => {
-    if (!customer.name || !customer.phone) return toast.error('Customer details required');
-    if (items.some(i => !i.preEstimationGrossWeight)) return toast.error('Please enter pre-estimation weights for all items');
+    if (!customer.name.trim() || !customer.phone) {
+      return toast.error('Customer name and phone are required');
+    }
+    if (!/^\d{10}$/.test(customer.phone)) {
+      return toast.error('Phone number must be exactly 10 digits');
+    }
+    if (customer.aadhaarNumber && !/^\d{12}$/.test(customer.aadhaarNumber)) {
+      return toast.error('Aadhaar number must be exactly 12 digits');
+    }
+    if (customer.panNumber) {
+      const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+      if (!panRegex.test(customer.panNumber)) {
+        return toast.error('Invalid PAN format. Expected: ABCDE1234F');
+      }
+    }
+    if (items.some(i => !i.preEstimationGrossWeight || parseFloat(i.preEstimationGrossWeight) <= 0)) {
+      return toast.error('Please enter a valid pre-estimation weight for all items');
+    }
     
     setLoading(true);
     try {
@@ -220,22 +245,23 @@ export default function NewDirectPurchase() {
     }
   };
 
+  // Updated Image Component for clean look
   const ImageCaptureSlot = ({ label, url, onCamera, onUpload }) => (
-    <div className="flex flex-col items-center bg-gray-50 p-2 rounded-xl border border-gray-200">
-      <div className="w-full h-24 bg-white border-2 border-dashed rounded-lg flex items-center justify-center overflow-hidden mb-2 relative group">
+    <div className="flex flex-col items-center bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+      <div className="w-full h-24 bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center overflow-hidden mb-3 relative">
         {url ? (
           <img src={url} className="w-full h-full object-cover" />
         ) : (
-          <CameraIcon className="w-8 h-8 text-gray-300" />
+          <CameraIcon className="w-8 h-8 text-slate-300" />
         )}
       </div>
-      <p className="text-[10px] text-gray-500 font-medium mb-1 uppercase tracking-wider">{label}</p>
-      <div className="flex gap-1 w-full">
-        <button onClick={onCamera} type="button" className="flex-1 bg-yellow-100 text-yellow-800 text-[10px] py-1 rounded font-bold hover:bg-yellow-200 flex items-center justify-center gap-1">
-          <CameraIcon className="w-3 h-3" /> Snap
+      <p className="text-[11px] text-slate-600 font-medium mb-2 uppercase tracking-wide">{label}</p>
+      <div className="flex gap-2 w-full">
+        <button onClick={onCamera} type="button" className="flex-1 bg-slate-100 text-slate-700 text-[11px] py-1.5 rounded-md font-medium hover:bg-slate-200 transition-colors flex items-center justify-center gap-1.5">
+          <CameraIcon className="w-3.5 h-3.5" /> Snap
         </button>
-        <label className="flex-1 bg-gray-200 text-gray-700 text-[10px] py-1 rounded font-bold hover:bg-gray-300 flex items-center justify-center gap-1 cursor-pointer">
-          <DocumentArrowUpIcon className="w-3 h-3" /> File
+        <label className="flex-1 bg-slate-100 text-slate-700 text-[11px] py-1.5 rounded-md font-medium hover:bg-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
+          <DocumentArrowUpIcon className="w-3.5 h-3.5" /> File
           <input type="file" accept="image/*" className="hidden" onChange={onUpload} />
         </label>
       </div>
@@ -243,171 +269,258 @@ export default function NewDirectPurchase() {
   );
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-12 p-4">
+    <div className="max-w-5xl mx-auto space-y-6 pb-12 p-4">
       <Toaster position="top-center" />
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl md:text-3xl font-bold">Direct Branch Purchase</h1>
+      
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Direct Branch Purchase</h1>
+          <p className="text-sm text-slate-500 mt-1">Create a new buy-back order from a customer.</p>
+        </div>
         {goldRate && (
-          <div className="hidden sm:flex items-center gap-2 text-sm bg-yellow-50 px-3 py-1.5 rounded-lg border border-yellow-200">
-            <span className="text-gray-500">Live Rate:</span>
-            <span className="font-bold text-yellow-800">22K: ₹{goldRate.rates['22K']}</span>
-            <span className="text-gray-300">|</span>
-            <span className="font-bold text-yellow-800">24K: ₹{goldRate.rates['24K']}</span>
+          <div className="flex items-center gap-3 text-sm bg-slate-50 px-4 py-2 rounded-lg border border-slate-200 shadow-sm">
+            <span className="text-slate-500 font-medium">Live Rate:</span>
+            <span className="font-bold text-slate-900">22K: ₹{goldRate.rates['22K']}</span>
+            <span className="text-slate-300">|</span>
+            <span className="font-bold text-slate-900">24K: ₹{goldRate.rates['24K']}</span>
           </div>
         )}
       </div>
 
-      {/* 2-Step Tabs */}
-      <div className="flex gap-4 border-b pb-2">
-        {['Customer Details', 'Pre-Estimation'].map((label, idx) => (
-          <button key={label} onClick={() => setStep(idx + 1)} className={`font-semibold pb-2 ${step === idx + 1 ? 'text-yellow-600 border-b-2 border-yellow-500' : 'text-gray-400'}`}>
-            {idx + 1}. {label}
-          </button>
-        ))}
+      {/* Tabs */}
+      <div className="border-b border-slate-200">
+        <nav className="flex gap-6 -mb-px">
+          {['Customer Details', 'Pre-Estimation'].map((label, idx) => (
+            <button 
+              key={label} 
+              onClick={() => setStep(idx + 1)} 
+              className={`font-medium text-sm pb-3 border-b-2 transition-colors flex items-center gap-2 ${
+                step === idx + 1 
+                  ? 'border-slate-900 text-slate-900' 
+                  : 'border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300'
+              }`}
+            >
+              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                step === idx + 1 ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500'
+              }`}>
+                {idx + 1}
+              </span>
+              {label}
+            </button>
+          ))}
+        </nav>
       </div>
 
       {/* STEP 1: CUSTOMER */}
       {step === 1 && (
-        <div className="bg-white p-4 md:p-6 rounded-2xl shadow-md space-y-4">
-          <h2 className="text-lg font-bold flex items-center gap-2"><UserIcon className="w-5 h-5"/> Customer Details</h2>
+        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+          <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-4">
+            <UserIcon className="w-5 h-5 text-slate-400"/> Customer Details
+          </h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="relative">
+              <label className="block text-xs font-medium text-slate-700 mb-1.5">Phone Number <span className="text-red-500">*</span></label>
               <input 
                 type="tel" 
-                placeholder="Phone Number (10 digits) *" 
+                placeholder="10 digit mobile number" 
                 value={customer.phone} 
                 onChange={handlePhoneChange}
                 maxLength={10}
-                className="border p-2 rounded-lg w-full" 
+                className="w-full border border-slate-300 p-2.5 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none transition-all text-sm" 
               />
               {lookingUp && (
-                <div className="absolute right-3 top-3 w-4 h-4 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+                <div className="absolute right-3 top-[34px] w-4 h-4 border-2 border-slate-600 border-t-transparent rounded-full animate-spin" />
               )}
             </div>
             
             <div className="relative">
+              <label className="block text-xs font-medium text-slate-700 mb-1.5">Full Name <span className="text-red-500">*</span></label>
               <input 
                 type="text" 
-                placeholder="Full Name *" 
+                placeholder="Customer name" 
                 value={customer.name} 
                 onChange={e => setCustomer({...customer, name: e.target.value})} 
-                className={`border p-2 rounded-lg w-full ${isExistingCustomer ? 'bg-green-50' : ''}`} 
+                className={`w-full border p-2.5 rounded-lg outline-none transition-all text-sm ${isExistingCustomer ? 'border-emerald-300 bg-emerald-50/30' : 'border-slate-300 focus:ring-2 focus:ring-slate-900 focus:border-slate-900'}`} 
               />
               
               {isExistingCustomer && (
-                <span className="absolute -top-2 -right-2 bg-green-100 text-green-700 text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm border border-green-200">
+                <span className="absolute -top-2.5 right-3 bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 border border-emerald-200 shadow-sm">
                   <CheckCircleIcon className="w-3 h-3" /> Existing
                 </span>
               )}
               {customerNotFound && (
-                <span className="absolute -top-2 -right-2 bg-amber-100 text-amber-700 text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm border border-amber-200">
-                  <ExclamationCircleIcon className="w-3 h-3" /> New
+                <span className="absolute -top-2.5 right-3 bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 border border-amber-200 shadow-sm">
+                  <ExclamationCircleIcon className="w-3 h-3" /> New Profile
                 </span>
               )}
             </div>
 
-            <input type="text" placeholder="Aadhaar Number" value={customer.aadhaarNumber} onChange={e => setCustomer({...customer, aadhaarNumber: e.target.value})} className="border p-2 rounded-lg" />
-            <input type="text" placeholder="PAN Number" value={customer.panNumber} onChange={e => setCustomer({...customer, panNumber: e.target.value})} className="border p-2 rounded-lg" />
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1.5">Aadhaar Number</label>
+              <input 
+                type="text" 
+                placeholder="12 digit Aadhaar" 
+                value={customer.aadhaarNumber} 
+                onChange={e => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 12);
+                  setCustomer({...customer, aadhaarNumber: val});
+                }} 
+                maxLength={12}
+                className="w-full border border-slate-300 p-2.5 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none transition-all text-sm" 
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1.5">PAN Number</label>
+              <input 
+                type="text" 
+                placeholder="e.g. ABCDE1234F" 
+                value={customer.panNumber} 
+                onChange={e => {
+                  const val = e.target.value.toUpperCase().slice(0, 10);
+                  setCustomer({...customer, panNumber: val});
+                }} 
+                maxLength={10}
+                className="w-full border border-slate-300 p-2.5 rounded-lg focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none transition-all text-sm uppercase" 
+              />
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4">
-            {['profilePhoto', 'aadhaarFront', 'aadhaarBack', 'panFront'].map(field => (
-              <ImageCaptureSlot
-                key={field}
-                label={field.replace(/([A-Z])/g, ' $1').trim()}
-                url={customer[field]}
-                onCamera={() => openCamera('customer', field)}
-                onUpload={(e) => handleFileUpload(e, 'customer', field)}
-              />
-            ))}
+          <div className="pt-4 border-t border-slate-100">
+            <label className="block text-xs font-medium text-slate-700 mb-3">KYC Documents</label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {['profilePhoto', 'aadhaarFront', 'aadhaarBack', 'panFront'].map(field => (
+                <ImageCaptureSlot
+                  key={field}
+                  label={field.replace(/([A-Z])/g, ' $1').trim()}
+                  url={customer[field]}
+                  onCamera={() => openCamera('customer', field)}
+                  onUpload={(e) => handleFileUpload(e, 'customer', field)}
+                />
+              ))}
+            </div>
           </div>
-          <button onClick={() => setStep(2)} className="bg-yellow-500 px-6 py-2.5 rounded-lg font-bold w-full mt-4">Next: Pre-Estimation</button>
+          
+          <div className="pt-4 flex justify-end">
+            <button 
+              onClick={() => setStep(2)} 
+              className="bg-slate-900 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 transition-colors flex items-center gap-2"
+            >
+              Next: Pre-Estimation <ArrowRightIcon className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 
       {/* STEP 2: PRE-ESTIMATION */}
       {step === 2 && (
-        <div className="bg-white p-4 md:p-6 rounded-2xl shadow-md space-y-6">
-          <div>
-            <h2 className="text-lg font-bold flex items-center gap-2"><CubeIcon className="w-5 h-5"/> Pre-Estimation (Before Cleaning)</h2>
-            <p className="text-sm text-gray-500 mt-1">Record the items exactly as the customer brings them in. Final valuation will happen after melting.</p>
+        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+          <div className="border-b border-slate-100 pb-4">
+            <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+              <CubeIcon className="w-5 h-5 text-slate-400"/> Pre-Estimation (Before Melting)
+            </h2>
+            <p className="text-sm text-slate-500 mt-1">Record the items exactly as the customer brings them in. Final valuation will happen post-cleaning.</p>
           </div>
           
-          {items.map((item, idx) => (
-            <div key={idx} className="border p-4 rounded-xl space-y-4 bg-gray-50">
-              <div className="flex justify-between items-center">
-                <h3 className="font-bold text-sm text-gray-700">Item {idx + 1}</h3>
-                {items.length > 1 && (
-                  <button onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-red-500 text-xs font-bold bg-red-50 px-2 py-1 rounded">
-                    Remove
-                  </button>
-                )}
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <input type="text" placeholder="Item Name (e.g. Chain)" value={item.name} onChange={e => updateItem(idx, 'name', e.target.value)} className="border p-2 rounded-lg" />
-                <input type="number" placeholder="Count (Pieces)" value={item.count} onChange={e => updateItem(idx, 'count', e.target.value)} className="border p-2 rounded-lg" />
-                <select value={item.purity} onChange={e => updateItem(idx, 'purity', e.target.value)} className="border p-2 rounded-lg font-bold">
-                  <option value="24K">24K</option>
-                  <option value="22K">22K</option>
-                  <option value="18K">18K</option>
-                </select>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-                <div>
-                  <label className="text-xs text-orange-700 font-bold mb-1 block">Pre-Gross Weight (g) *</label>
-                  <input type="number" step="0.01" placeholder="Approx weight" value={item.preEstimationGrossWeight} onChange={e => updateItem(idx, 'preEstimationGrossWeight', e.target.value)} className="border-2 border-orange-200 bg-orange-50 p-2 rounded-lg w-full focus:border-orange-500 outline-none" />
+          <div className="space-y-5">
+            {items.map((item, idx) => (
+              <div key={idx} className="border border-slate-200 p-5 rounded-xl space-y-4 bg-slate-50/50 relative">
+                <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+                  <h3 className="font-semibold text-sm text-slate-800 flex items-center gap-2">
+                    <span className="bg-slate-200 text-slate-600 w-6 h-6 rounded-md flex items-center justify-center text-xs">{idx + 1}</span> 
+                    Item Details
+                  </h3>
+                  {items.length > 1 && (
+                    <button onClick={() => setItems(items.filter((_, i) => i !== idx))} className="text-red-500 text-xs font-medium hover:text-red-700 flex items-center gap-1">
+                      <XMarkIcon className="w-3.5 h-3.5" /> Remove
+                    </button>
+                  )}
                 </div>
                 
-                {/* FIXED: Using parseFloat to safely check string values */}
-                {parseFloat(item.itemPrice) > 0 && (
-                  <div className="bg-green-50 border border-green-200 p-2 rounded-lg">
-                    <p className="text-[10px] text-green-700 font-bold uppercase">Est. Value</p>
-                    <p className="font-bold text-green-800">₹ {item.itemPrice}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 mb-1">Item Name</label>
+                    <input type="text" placeholder="e.g. Chain, Bangle" value={item.name} onChange={e => updateItem(idx, 'name', e.target.value)} className="w-full border border-slate-300 p-2 rounded-lg text-sm focus:ring-2 focus:ring-slate-900 outline-none" />
                   </div>
-                )}
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <p className="text-xs text-gray-500 mb-1 block">Ornament Photos ({item.imageUrls.length})</p>
-                <div className="flex gap-2">
-                  <button onClick={() => openCamera('item', null, idx)} type="button" className="flex-1 bg-yellow-100 text-yellow-800 text-xs py-2 rounded-lg font-bold hover:bg-yellow-200 flex items-center justify-center gap-1">
-                    <CameraIcon className="w-4 h-4" /> Snap
-                  </button>
-                  <label className="flex-1 bg-gray-200 text-gray-700 text-xs py-2 rounded-lg font-bold hover:bg-gray-300 flex items-center justify-center gap-1 cursor-pointer">
-                    <DocumentArrowUpIcon className="w-4 h-4" /> File
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'item', null, idx)} />
-                  </label>
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 mb-1">Count (Pieces)</label>
+                    <input type="number" value={item.count} onChange={e => updateItem(idx, 'count', e.target.value)} className="w-full border border-slate-300 p-2 rounded-lg text-sm focus:ring-2 focus:ring-slate-900 outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 mb-1">Purity</label>
+                    <select value={item.purity} onChange={e => updateItem(idx, 'purity', e.target.value)} className="w-full border border-slate-300 p-2 rounded-lg text-sm font-medium focus:ring-2 focus:ring-slate-900 outline-none bg-white">
+                      <option value="24K">24K</option>
+                      <option value="22K">22K</option>
+                      <option value="18K">18K</option>
+                    </select>
+                  </div>
                 </div>
-              </div>
-              
-              {item.imageUrls.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {item.imageUrls.map((url, i) => (
-                    <div key={i} className="w-12 h-12 rounded border border-gray-300 overflow-hidden relative">
-                      <img src={url} className="w-full h-full object-cover" />
-                      <button onClick={() => {
-                        const newItems = [...items];
-                        newItems[idx].imageUrls = newItems[idx].imageUrls.filter((_, idx2) => idx2 !== i);
-                        setItems(newItems);
-                      }} className="absolute top-0 right-0 bg-red-500 text-white w-4 h-4 flex items-center justify-center text-[10px] rounded-bl">✕</button>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end bg-white p-3 rounded-lg border border-slate-200">
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 mb-1">Pre-Gross Weight (g) <span className="text-red-500">*</span></label>
+                    <input type="number" step="0.01" placeholder="0.00" value={item.preEstimationGrossWeight} onChange={e => updateItem(idx, 'preEstimationGrossWeight', e.target.value)} className="w-full border border-slate-300 p-2.5 rounded-lg text-sm focus:ring-2 focus:ring-slate-900 outline-none font-medium" />
+                  </div>
+                  
+                  {parseFloat(item.itemPrice) > 0 && (
+                    <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-lg flex justify-between items-center">
+                      <span className="text-[11px] text-slate-500 font-medium uppercase tracking-wide">Est. Value</span>
+                      <span className="font-bold text-slate-900 text-base">₹ {item.itemPrice}</span>
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
 
-          <button onClick={() => setItems([...items, { name: 'Ring', count: 1, purity: '22K', preEstimationGrossWeight: '', ratePerGram: 0, itemPrice: 0, imageUrls: [] }])} className="text-blue-600 text-sm font-bold bg-blue-50 px-4 py-2 rounded-lg">
+                <div className="pt-2">
+                  <p className="text-[11px] font-medium text-slate-600 mb-2">Item Photos ({item.imageUrls.length})</p>
+                  <div className="flex flex-wrap gap-3">
+                    {item.imageUrls.map((url, i) => (
+                      <div key={i} className="w-14 h-14 rounded-lg border border-slate-200 overflow-hidden relative group">
+                        <img src={url} className="w-full h-full object-cover" />
+                        <button onClick={() => {
+                          const newItems = [...items];
+                          newItems[idx].imageUrls = newItems[idx].imageUrls.filter((_, idx2) => idx2 !== i);
+                          setItems(newItems);
+                        }} className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                          <XMarkIcon className="w-5 h-5" />
+                        </button>
+                      </div>
+                    ))}
+                    
+                    <button onClick={() => openCamera('item', null, idx)} type="button" className="w-14 h-14 border border-slate-300 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-colors bg-white">
+                      <CameraIcon className="w-6 h-6" />
+                    </button>
+                    <label className="w-14 h-14 border border-slate-300 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer bg-white">
+                      <DocumentArrowUpIcon className="w-6 h-6" />
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload(e, 'item', null, idx)} />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button 
+            onClick={() => setItems([...items, { name: 'Ring', count: 1, purity: '22K', preEstimationGrossWeight: '', ratePerGram: 0, itemPrice: 0, imageUrls: [] }])} 
+            className="w-full border-2 border-dashed border-slate-300 text-slate-600 text-sm font-medium py-3 rounded-xl hover:bg-slate-50 hover:border-slate-400 transition-colors flex items-center justify-center gap-2"
+          >
             + Add Another Item
           </button>
           
-          <div className="flex gap-4 pt-4 border-t">
-            <button onClick={() => setStep(1)} className="bg-gray-100 px-6 py-2.5 rounded-lg font-bold flex-1">Back</button>
-            <button onClick={handleSubmit} disabled={loading} className="bg-green-600 text-white px-6 py-2.5 rounded-lg font-bold flex-1 disabled:opacity-50 flex items-center justify-center gap-2">
-              {loading ? 'Processing...' : 'Generate Estimate Agreement'}
+          <div className="flex gap-4 pt-6 border-t border-slate-100">
+            <button 
+              onClick={() => setStep(1)} 
+              className="flex-1 bg-white border border-slate-300 text-slate-700 px-6 py-3 rounded-lg font-medium hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+            >
+              <ArrowLeftIcon className="w-4 h-4" /> Back
+            </button>
+            <button 
+              onClick={handleSubmit} 
+              disabled={loading} 
+              className="flex-[2] bg-emerald-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2 shadow-sm"
+            >
+              {loading ? 'Generating...' : 'Generate Estimate Agreement'}
             </button>
           </div>
         </div>

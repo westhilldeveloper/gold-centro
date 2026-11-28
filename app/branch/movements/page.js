@@ -31,9 +31,9 @@ export default function BranchMovements() {
   const [modalOpen, setModalOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
-  const [sheetData, setSheetData] = useState(null); // { movement, items, noteType }
+  const [sheetData, setSheetData] = useState(null);
   const [downloadingSheet, setDownloadingSheet] = useState(null);
-  const [uploadingSheet, setUploadingSheet] = useState({}); // { [`${id}-${type}`]: bool }
+  const [uploadingSheet, setUploadingSheet] = useState({});
   const sheetRef = useRef(null);
 
   const load = async () => {
@@ -54,7 +54,6 @@ export default function BranchMovements() {
 
   useEffect(() => { load(); }, [user]);
 
-  // Download trigger
   useEffect(() => {
     if (!sheetData) return;
     const run = async () => {
@@ -151,10 +150,10 @@ export default function BranchMovements() {
 
   const badge = (status) => {
     const cfg = {
-      IN_TRANSIT: { c: 'bg-yellow-100 text-yellow-700', i: TruckIcon, l: 'In Transit' },
-      RECEIVED: { c: 'bg-green-100 text-green-700', i: CheckCircleIcon, l: 'Received' },
-      PENDING: { c: 'bg-blue-100 text-blue-700', i: TruckIcon, l: 'Pending' },
-      CANCELLED: { c: 'bg-red-100 text-red-700', i: XMarkIcon, l: 'Cancelled' },
+      IN_TRANSIT: { c: 'bg-blue-50 text-blue-700 border-blue-200', i: TruckIcon, l: 'In Transit' },
+      RECEIVED: { c: 'bg-emerald-50 text-emerald-700 border-emerald-200', i: CheckCircleIcon, l: 'Received' },
+      PENDING: { c: 'bg-slate-50 text-slate-700 border-slate-200', i: TruckIcon, l: 'Pending' },
+      CANCELLED: { c: 'bg-red-50 text-red-700 border-red-200', i: XMarkIcon, l: 'Cancelled' },
     };
     return cfg[status] || cfg.PENDING;
   };
@@ -162,39 +161,39 @@ export default function BranchMovements() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-10 h-10 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6 pb-12">
       <Toaster position="top-center" />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-            <ArrowsRightLeftIcon className="w-8 h-8 text-yellow-600" /> Stock Movements
+          <h1 className="text-2xl font-semibold text-slate-900 tracking-tight flex items-center gap-2">
+            <ArrowsRightLeftIcon className="w-7 h-7 text-slate-400" /> Stock Movements
           </h1>
-          <p className="text-gray-500 mt-1">Incoming and outgoing transfers</p>
+          <p className="text-sm text-slate-500 mt-1">Manage incoming and outgoing gold transfers</p>
         </div>
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setModalOpen(true)}
-          className="flex items-center gap-2 bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-bold px-5 py-3 rounded-xl shadow-md hover:shadow-lg"
+          className="flex items-center gap-2 bg-slate-900 text-white text-sm font-medium px-5 py-2.5 rounded-lg shadow-sm hover:bg-slate-800 transition-colors"
         >
-          <PlusIcon className="w-5 h-5" /> New Movement
+          <PlusIcon className="w-4 h-4" /> New Movement
         </motion.button>
       </div>
 
       {movements.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-md p-12 text-center text-gray-500">
-          <ArrowsRightLeftIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p>No movements yet.</p>
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-12 text-center">
+          <ArrowsRightLeftIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+          <p className="text-slate-500 font-medium">No stock movements recorded yet.</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {movements.map((m) => {
             const b = badge(m.status);
             const Icon = b.i;
@@ -206,72 +205,79 @@ export default function BranchMovements() {
             const isAgentCarrier = m.carrierType === 'AGENT' && m.carrierId;
 
             return (
-              <div key={m.id} className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
-                <div className="px-6 py-4">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-xs px-2 py-1 rounded-full inline-flex items-center gap-1 ${b.c}`}>
-                      <Icon className="w-3 h-3" /> {b.l}
+              <div key={m.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="px-6 py-5">
+                  
+                  {/* Top Row: Status & Direction */}
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <span className={`text-[11px] px-2.5 py-1 rounded-md border font-semibold tracking-wide inline-flex items-center gap-1.5 ${b.c}`}>
+                      <Icon className="w-3.5 h-3.5" /> {b.l.toUpperCase()}
                     </span>
-                    <span className={`text-xs font-bold ${isIncoming ? 'text-green-600' : 'text-red-600'}`}>
+                    
+                    <span className={`text-[11px] font-bold tracking-wider px-2 py-1 rounded-md border ${
+                      isIncoming ? 'bg-slate-50 text-slate-700 border-slate-200' : 'bg-slate-50 text-slate-700 border-slate-200'
+                    }`}>
                       {isIncoming ? '↓ INCOMING' : '↑ OUTGOING'}
                     </span>
+
                     {isAgentCarrier && (
-                      <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full font-medium">
-                        🤖 Carried by Agent
+                      <span className="text-[11px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-md font-medium">
+                        Carried by Agent
                       </span>
                     )}
                     {itemCount > 0 && (
-                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                      <span className="text-[11px] bg-slate-100 text-slate-600 border border-slate-200 px-2.5 py-1 rounded-md font-medium">
                         {itemCount} item{itemCount > 1 ? 's' : ''}
                       </span>
                     )}
-                    <span className="text-xs text-gray-400 ml-auto font-mono">#{m.id.slice(-8)}</span>
+                    <span className="text-xs text-slate-400 ml-auto font-mono">#{m.id.slice(-8).toUpperCase()}</span>
                   </div>
 
-                  {/* Route + weight + date */}
-                  <p className="text-sm mt-2">
-                    <span className="text-gray-500">From:</span>{' '}
-                    <span className="font-medium">{m.fromBranch?.name || 'External'}</span>
-                    {' → '}
-                    <span className="text-gray-500">To:</span>{' '}
-                    <span className="font-medium">{m.toBranch?.name || 'External'}</span>
-                  </p>
-                  <p className="text-sm font-semibold text-gray-900 mt-1">
-                    {m.weight.toFixed(2)}g ({m.purity})
-                  </p>
-                  {m.description && <p className="text-xs text-gray-500 mt-1">{m.description}</p>}
-                  <p className="text-xs text-gray-400 mt-1">{new Date(m.createdAt).toLocaleString()}</p>
+                  {/* Route & Core Data */}
+                  <div className="mb-4">
+                    <p className="text-sm text-slate-600">
+                      <span className="font-medium text-slate-900">{m.fromBranch?.name || 'External'}</span>
+                      <span className="mx-2 text-slate-300">→</span>
+                      <span className="font-medium text-slate-900">{m.toBranch?.name || 'External'}</span>
+                    </p>
+                    <div className="flex items-baseline gap-2 mt-1">
+                      <p className="text-xl font-bold text-slate-900">{m.weight.toFixed(3)}<span className="text-sm text-slate-400 font-normal ml-0.5">g</span></p>
+                      <p className="text-sm font-medium text-slate-500">({m.purity})</p>
+                    </div>
+                    {m.description && <p className="text-sm text-slate-500 mt-1">{m.description}</p>}
+                    <p className="text-[11px] text-slate-400 mt-1 uppercase tracking-wide">{new Date(m.createdAt).toLocaleString('en-GB')}</p>
+                  </div>
 
-                  {/* People chain */}
+                  {/* People Chain */}
                   {hasPeople && (
-                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                      <div className="bg-gray-50 rounded-lg p-2.5 border border-gray-100">
-                        <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Handed over by</p>
-                        <p className="font-medium text-gray-900 mt-0.5 truncate">{m.handedOverByName || '—'}</p>
-                        {m.handedOverByPhone && <p className="text-gray-500 truncate">{m.handedOverByPhone}</p>}
+                    <div className="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">Handed over by</p>
+                        <p className="font-medium text-slate-900 text-sm truncate">{m.handedOverByName || '—'}</p>
+                        {m.handedOverByPhone && <p className="text-xs text-slate-500 truncate mt-0.5">{m.handedOverByPhone}</p>}
                       </div>
-                      <div className="bg-yellow-50 rounded-lg p-2.5 border border-yellow-100">
-                        <p className="text-[10px] uppercase tracking-wider text-yellow-700 font-semibold">Carried by</p>
-                        <p className="font-medium text-gray-900 mt-0.5 truncate">
+                      <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">Carried by</p>
+                        <p className="font-medium text-slate-900 text-sm truncate">
                           {m.carrierName || '—'}
-                          {m.carrierType && <span className="ml-1 text-[10px] text-yellow-700 font-normal">({m.carrierType})</span>}
+                          {m.carrierType && <span className="ml-1.5 text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">{m.carrierType}</span>}
                         </p>
-                        {m.carrierPhone && <p className="text-gray-500 truncate">{m.carrierPhone}</p>}
+                        {m.carrierPhone && <p className="text-xs text-slate-500 truncate mt-0.5">{m.carrierPhone}</p>}
                       </div>
-                      <div className="bg-green-50 rounded-lg p-2.5 border border-green-100">
-                        <p className="text-[10px] uppercase tracking-wider text-green-700 font-semibold">Received by</p>
-                        <p className="font-medium text-gray-900 mt-0.5 truncate">{m.receivedByName || '—'}</p>
-                        {m.receivedAt && <p className="text-gray-500 truncate">{new Date(m.receivedAt).toLocaleString()}</p>}
+                      <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1">Received by</p>
+                        <p className="font-medium text-slate-900 text-sm truncate">{m.receivedByName || '—'}</p>
+                        {m.receivedAt && <p className="text-xs text-slate-500 truncate mt-0.5">{new Date(m.receivedAt).toLocaleString('en-GB')}</p>}
                       </div>
                     </div>
                   )}
 
-                  {/* Actions */}
-                  <div className="mt-3 flex flex-wrap gap-2">
+                  {/* Action Buttons */}
+                  <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
                     {itemCount > 0 && (
                       <button
                         onClick={() => setExpandedId(isExpanded ? null : m.id)}
-                        className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50"
+                        className="text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-colors flex items-center gap-1.5"
                       >
                         {isExpanded ? (<><ChevronUpIcon className="w-4 h-4" /> Hide Items</>) : (<><ChevronDownIcon className="w-4 h-4" /> View Items</>)}
                       </button>
@@ -281,7 +287,7 @@ export default function BranchMovements() {
                       <button
                         onClick={() => handleDownloadNote(m, 'transfer')}
                         disabled={downloadingSheet === `${m.id}-transfer`}
-                        className="text-sm text-gray-700 hover:text-black flex items-center gap-1 border border-gray-300 rounded-lg px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
+                        className="text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-colors flex items-center gap-1.5 disabled:opacity-50"
                       >
                         <ArrowDownTrayIcon className="w-4 h-4" />
                         {downloadingSheet === `${m.id}-transfer` ? 'Preparing…' : 'Transfer Note'}
@@ -292,7 +298,7 @@ export default function BranchMovements() {
                       <button
                         onClick={() => handleDownloadNote(m, 'receiving')}
                         disabled={downloadingSheet === `${m.id}-receiving`}
-                        className="text-sm text-gray-700 hover:text-black flex items-center gap-1 border border-gray-300 rounded-lg px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50"
+                        className="text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-colors flex items-center gap-1.5 disabled:opacity-50"
                       >
                         <ArrowDownTrayIcon className="w-4 h-4" />
                         {downloadingSheet === `${m.id}-receiving` ? 'Preparing…' : 'Receiving Note'}
@@ -302,16 +308,15 @@ export default function BranchMovements() {
                     {isIncoming && m.status === 'IN_TRANSIT' && (
                       <button
                         onClick={() => handleReceived(m.id)}
-                        className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg flex items-center gap-1"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium px-4 py-1.5 rounded-lg shadow-sm transition-colors flex items-center gap-1.5 ml-auto"
                       >
                         <CheckCircleIcon className="w-4 h-4" /> Mark Received
                       </button>
                     )}
                   </div>
 
-                  {/* ─────── TWO NOTE SECTIONS ─────── */}
-                  <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {/* Transfer Note block */}
+                  {/* Notes Section */}
+                  <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <NoteBlock
                       label="Transfer Note"
                       subtitle="Signed by source & carrier"
@@ -321,10 +326,8 @@ export default function BranchMovements() {
                       canUpload={isOutgoing}
                       isUploading={uploadingSheet[`${m.id}-transfer`]}
                       onUpload={(file) => uploadNote(m.id, 'transfer', file)}
-                      accentColor="amber"
                     />
 
-                    {/* Receiving Note block */}
                     <NoteBlock
                       label="Receiving Note"
                       subtitle="Signed by receiving branch"
@@ -334,21 +337,20 @@ export default function BranchMovements() {
                       canUpload={isIncoming && m.status === 'RECEIVED'}
                       isUploading={uploadingSheet[`${m.id}-receiving`]}
                       onUpload={(file) => uploadNote(m.id, 'receiving', file)}
-                      accentColor="green"
                     />
                   </div>
                 </div>
 
-                {/* Expanded items */}
+                {/* Expanded Items */}
                 <AnimatePresence>
                   {isExpanded && itemCount > 0 && (
                     <motion.div
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      className="border-t border-gray-100 bg-gray-50 overflow-hidden"
+                      className="border-t border-slate-200 bg-slate-50 overflow-hidden"
                     >
-                      <div className="p-4">
+                      <div className="p-5">
                         <MovementItems movementId={m.id} onPreviewImage={setPreviewImage} />
                       </div>
                     </motion.div>
@@ -358,7 +360,6 @@ export default function BranchMovements() {
             );
           })}
 
-          {/* Hidden PDF renderer */}
           {sheetData && (
             <div style={{ position: 'fixed', left: '-10000px', top: 0, pointerEvents: 'none' }}>
               <MovementTransferNote
@@ -383,18 +384,17 @@ export default function BranchMovements() {
         onPreviewImage={setPreviewImage}
       />
 
-      {/* Image preview */}
       <AnimatePresence>
         {previewImage && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/95 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+            className="fixed inset-0 bg-slate-900/95 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
             onClick={() => setPreviewImage(null)}
           >
-            <button className="absolute top-4 right-4 text-white hover:text-yellow-400 p-2 rounded-full bg-white/10">
-              <XMarkIcon className="w-8 h-8" />
+            <button className="absolute top-6 right-6 text-slate-400 hover:text-white p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
+              <XMarkIcon className="w-6 h-6" />
             </button>
-            <img src={previewImage} alt="Preview" className="max-w-full max-h-full object-contain rounded-lg" onClick={(e) => e.stopPropagation()} />
+            <img src={previewImage} alt="Preview" className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -403,56 +403,44 @@ export default function BranchMovements() {
 }
 
 /* ─────── Note Block sub-component ─────── */
-function NoteBlock({ label, subtitle, url, uploadedAt, uploadedByName, canUpload, isUploading, onUpload, accentColor }) {
-  const accent = {
-    amber: {
-      bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-800',
-      dashed: 'border-amber-300', btn: 'bg-amber-50 hover:bg-amber-100', btnText: 'text-amber-700',
-    },
-    green: {
-      bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-800',
-      dashed: 'border-green-300', btn: 'bg-green-50 hover:bg-green-100', btnText: 'text-green-700',
-    },
-  }[accentColor] || {
-    bg: 'bg-gray-50', border: 'border-gray-200', text: 'text-gray-700',
-    dashed: 'border-gray-300', btn: 'bg-gray-50 hover:bg-gray-100', btnText: 'text-gray-700',
-  };
-
+function NoteBlock({ label, subtitle, url, uploadedAt, uploadedByName, canUpload, isUploading, onUpload }) {
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1">{label}</p>
-      <p className="text-[10px] text-gray-400 mb-2">{subtitle}</p>
+      <div className="flex items-baseline justify-between mb-2">
+        <p className="text-[11px] uppercase tracking-wide text-slate-700 font-bold">{label}</p>
+        <p className="text-[10px] text-slate-400">{subtitle}</p>
+      </div>
 
       {url ? (
-        <div className={`flex items-center gap-2 ${accent.bg} ${accent.border} border rounded-lg p-2`}>
-          <CheckCircleIcon className={`w-4 h-4 ${accent.text} flex-shrink-0`} />
+        <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg p-3">
+          <CheckCircleIcon className="w-5 h-5 text-emerald-600 flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className={`text-[11px] font-medium ${accent.text} truncate`}>Uploaded</p>
-            <p className="text-[10px] text-gray-500 truncate">
-              {uploadedByName || ''}{uploadedAt ? ` • ${new Date(uploadedAt).toLocaleDateString()}` : ''}
+            <p className="text-sm font-semibold text-slate-900 truncate">Document Uploaded</p>
+            <p className="text-xs text-slate-500 truncate mt-0.5">
+              {uploadedByName || 'Staff'}{uploadedAt ? ` • ${new Date(uploadedAt).toLocaleDateString('en-GB')}` : ''}
             </p>
           </div>
-          <a href={url} target="_blank" rel="noopener noreferrer" className={`text-[11px] ${accent.text} underline font-medium flex-shrink-0`}>
+          <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-slate-700 bg-white border border-slate-300 px-3 py-1.5 rounded-md font-medium hover:bg-slate-100 transition-colors">
             View
           </a>
         </div>
       ) : canUpload ? (
-        <label className={`flex items-center justify-center gap-1.5 ${accent.btn} border-2 border-dashed ${accent.dashed} rounded-lg px-3 py-2 cursor-pointer transition ${isUploading ? 'opacity-60' : ''}`}>
+        <label className={`flex items-center justify-center gap-2 bg-white border-2 border-dashed border-slate-300 rounded-lg px-4 py-3 cursor-pointer transition-colors hover:border-slate-400 hover:bg-slate-50 ${isUploading ? 'opacity-60 pointer-events-none' : ''}`}>
           {isUploading ? (
             <>
-              <div className={`w-3.5 h-3.5 border-2 ${accent.btnText} border-t-transparent rounded-full animate-spin`} />
-              <span className={`text-[11px] font-medium ${accent.btnText}`}>Uploading…</span>
+              <div className="w-4 h-4 border-2 border-slate-600 border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs font-medium text-slate-600">Uploading…</span>
             </>
           ) : (
             <>
-              <DocumentArrowUpIcon className={`w-4 h-4 ${accent.btnText}`} />
-              <span className={`text-[11px] font-medium ${accent.btnText}`}>Upload signed {label}</span>
+              <DocumentArrowUpIcon className="w-5 h-5 text-slate-400" />
+              <span className="text-xs font-medium text-slate-600">Upload signed {label}</span>
             </>
           )}
           <input type="file" accept="image/*,application/pdf" className="hidden" disabled={isUploading} onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ''; }} />
         </label>
       ) : (
-        <div className="text-[11px] text-gray-400 italic bg-gray-50 border border-dashed border-gray-200 rounded-lg px-3 py-2">
+        <div className="text-xs text-slate-400 text-center bg-slate-50 border border-dashed border-slate-200 rounded-lg px-4 py-3">
           Not uploaded yet
         </div>
       )}
@@ -460,7 +448,7 @@ function NoteBlock({ label, subtitle, url, uploadedAt, uploadedByName, canUpload
   );
 }
 
-/* ─────── MovementItems, NewMovementModal  ─────── */
+/* ─────── MovementItems ─────── */
 function MovementItems({ movementId, onPreviewImage }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -479,21 +467,21 @@ function MovementItems({ movementId, onPreviewImage }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-6">
-        <div className="w-6 h-6 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   if (items.length === 0) {
     return (
-      <p className="text-center text-gray-400 text-sm py-4">
+      <p className="text-center text-slate-400 text-sm py-4">
         No item details available.
       </p>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {items.map((item) => {
         const firstImg =
           Array.isArray(item.imageUrls) && item.imageUrls.length > 0
@@ -502,13 +490,13 @@ function MovementItems({ movementId, onPreviewImage }) {
         return (
           <div
             key={item.id}
-            className="flex gap-3 bg-white rounded-xl p-3 border border-gray-100"
+            className="flex gap-4 bg-white rounded-xl p-3 border border-slate-200 shadow-sm"
           >
             <button
               type="button"
               onClick={() => firstImg && onPreviewImage(firstImg)}
               disabled={!firstImg}
-              className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 border-gray-200 hover:border-yellow-400 transition bg-white flex items-center justify-center disabled:cursor-default"
+              className="flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center disabled:cursor-default"
             >
               {firstImg ? (
                 <img
@@ -517,44 +505,39 @@ function MovementItems({ movementId, onPreviewImage }) {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <PhotoIcon className="w-8 h-8 text-gray-300" />
+                <PhotoIcon className="w-8 h-8 text-slate-300" />
               )}
             </button>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 py-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <p className="font-semibold text-gray-900 text-sm truncate">
+                <p className="font-semibold text-slate-900 text-sm truncate">
                   {item.name}
                 </p>
-                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                  ×{item.count}
+                <span className="text-[10px] bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded-md">
+                  Qty: {item.count}
                 </span>
               </div>
               {item.order && (
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-[11px] text-slate-500 mt-1 truncate">
                   Order #{item.order.id.slice(-6)} •{' '}
                   {item.purity || item.order.purity}
                 </p>
               )}
-              <div className="mt-1 space-y-0.5 text-xs">
-                <p>
-                  <span className="text-gray-400">Gross:</span>{' '}
-                  <span className="font-medium">
-                    {item.grossWeight?.toFixed(2)}g
-                  </span>
-                </p>
-                <p>
-                  <span className="text-gray-400">Net:</span>{' '}
-                  <span className="font-bold text-yellow-700">
-                    {item.netWeight?.toFixed(2)}g
-                  </span>
-                </p>
+              <div className="mt-2 space-y-1 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Gross:</span>{' '}
+                  <span className="font-medium text-slate-700">{item.grossWeight?.toFixed(2)}g</span>
+                </div>
+                <div className="flex justify-between border-t border-slate-100 pt-1">
+                  <span className="text-slate-500">Net:</span>{' '}
+                  <span className="font-bold text-slate-900">{item.netWeight?.toFixed(2)}g</span>
+                </div>
               </div>
             </div>
           </div>
         );
       })}
     </div>
-    
   );
 }
 
@@ -578,7 +561,6 @@ function NewMovementModal({
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // People chain
   const [agents, setAgents] = useState([]);
   const [handedOverByName, setHandedOverByName] = useState('');
   const [handedOverByPhone, setHandedOverByPhone] = useState('');
@@ -587,7 +569,6 @@ function NewMovementModal({
   const [carrierName, setCarrierName] = useState('');
   const [carrierPhone, setCarrierPhone] = useState('');
 
-  // Load items + agents when modal opens
   useEffect(() => {
     if (!isOpen || !branchId) return;
     setLoading(true);
@@ -602,16 +583,11 @@ function NewMovementModal({
     setCarrierPhone('');
 
     Promise.all([
-      fetch(`/api/branch/stock-items?branchId=${branchId}`).then((r) =>
-        r.json()
-      ),
-      fetch('/api/users/agents')
-        .then((r) => r.json())
-        .catch(() => ({})),
+      fetch(`/api/branch/stock-items?branchId=${branchId}`).then((r) => r.json()),
+      fetch('/api/users/agents').then((r) => r.json()).catch(() => ({})),
     ])
       .then(([stockRes, agentRes]) => {
-        if (stockRes.success && Array.isArray(stockRes.items))
-          setItems(stockRes.items);
+        if (stockRes.success && Array.isArray(stockRes.items)) setItems(stockRes.items);
         else setItems([]);
         if (agentRes.success) setAgents(agentRes.agents || []);
       })
@@ -619,9 +595,7 @@ function NewMovementModal({
   }, [isOpen, branchId, userName]);
 
   const toggleItem = (id) => {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    setSelected((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   };
 
   const toggleAll = () => {
@@ -644,22 +618,10 @@ function NewMovementModal({
   const totalCount = selectedItems.reduce((s, i) => s + i.count, 0);
 
   const handleSubmit = async () => {
-    if (selected.length === 0) {
-      toast.error('Select at least one item');
-      return;
-    }
-    if (!toBranchId) {
-      toast.error('Select a destination branch');
-      return;
-    }
-    if (!handedOverByName.trim()) {
-      toast.error('Enter who handed over the gold');
-      return;
-    }
-    if (!carrierName.trim()) {
-      toast.error('Enter who is carrying the gold');
-      return;
-    }
+    if (selected.length === 0) return toast.error('Select at least one item');
+    if (!toBranchId) return toast.error('Select a destination branch');
+    if (!handedOverByName.trim()) return toast.error('Enter who handed over the gold');
+    if (!carrierName.trim()) return toast.error('Enter who is carrying the gold');
 
     setSubmitting(true);
     try {
@@ -698,102 +660,79 @@ function NewMovementModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           onClick={onClose}
         >
           <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
+            initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            transition={{ type: 'spring', damping: 20 }}
-            className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[92vh] flex flex-col"
+            exit={{ scale: 0.95, opacity: 0 }}
+            transition={{ type: 'spring', damping: 25 }}
+            className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[92vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center flex-shrink-0">
+            <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center flex-shrink-0">
               <div>
-                <h2 className="text-xl font-bold">New Stock Movement</h2>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Select items to send to another branch
-                </p>
+                <h2 className="text-lg font-bold text-slate-900">New Stock Movement</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Select items to send to another branch</p>
               </div>
-              <button
-                onClick={onClose}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <XMarkIcon className="w-6 h-6" />
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 p-2 rounded-lg transition-colors">
+                <XMarkIcon className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto p-6 space-y-5">
+              
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Destination Branch <span className="text-red-500">*</span>
-                </label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5 uppercase tracking-wide">Destination Branch <span className="text-red-500">*</span></label>
                 <select
                   value={toBranchId}
                   onChange={(e) => setToBranchId(e.target.value)}
-                  className="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 focus:border-yellow-500 outline-none"
+                  className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-slate-900 outline-none"
                 >
-                  <option value="">Select destination</option>
+                  <option value="">Select destination...</option>
                   {branches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name} ({b.code})
-                    </option>
+                    <option key={b.id} value={b.id}>{b.name} ({b.code})</option>
                   ))}
                 </select>
               </div>
 
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <p className="text-sm font-semibold text-gray-700">
-                    Available Items ({items.length})
-                  </p>
+                  <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Available Items ({items.length})</p>
                   {items.length > 0 && (
-                    <button
-                      onClick={toggleAll}
-                      className="text-xs text-yellow-600 hover:text-yellow-800 font-medium"
-                    >
-                      {selected.length === items.length
-                        ? 'Deselect All'
-                        : 'Select All'}
+                    <button onClick={toggleAll} className="text-xs text-slate-600 hover:text-slate-900 font-medium underline">
+                      {selected.length === items.length ? 'Deselect All' : 'Select All'}
                     </button>
                   )}
                 </div>
 
                 {loading ? (
                   <div className="flex items-center justify-center h-32">
-                    <div className="w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+                    <div className="w-6 h-6 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : items.length === 0 ? (
-                  <div className="text-center py-8 bg-gray-50 rounded-xl">
-                    <CubeIcon className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                    <p className="text-gray-500 text-sm">
-                      No items in this branch.
-                    </p>
+                  <div className="text-center py-8 bg-slate-50 rounded-lg border border-slate-200">
+                    <CubeIcon className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                    <p className="text-slate-500 text-sm font-medium">No items available in this branch.</p>
                   </div>
                 ) : (
-                  <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                     {items.map((item) => {
                       const isSelected = selected.includes(item.id);
-                      const firstImg =
-                        Array.isArray(item.imageUrls) &&
-                        item.imageUrls.length > 0
-                          ? item.imageUrls[0]
-                          : null;
+                      const firstImg = Array.isArray(item.imageUrls) && item.imageUrls.length > 0 ? item.imageUrls[0] : null;
                       return (
                         <label
                           key={item.id}
-                          className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition ${
-                            isSelected
-                              ? 'border-yellow-400 bg-yellow-50'
-                              : 'border-gray-200 hover:border-gray-300'
+                          className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                            isSelected ? 'border-slate-900 bg-slate-50 shadow-sm' : 'border-slate-200 hover:border-slate-300 bg-white'
                           }`}
                         >
                           <input
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => toggleItem(item.id)}
-                            className="w-4 h-4 accent-yellow-500"
+                            className="w-4 h-4 accent-slate-900 rounded border-slate-300"
                           />
                           <button
                             type="button"
@@ -801,46 +740,25 @@ function NewMovementModal({
                               e.preventDefault();
                               if (firstImg) onPreviewImage(firstImg);
                             }}
-                            className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-gray-200 bg-white"
+                            className="flex-shrink-0 w-12 h-12 rounded border border-slate-200 bg-slate-50 overflow-hidden"
                           >
                             {firstImg ? (
-                              <img
-                                src={firstImg}
-                                alt={item.name}
-                                className="w-full h-full object-cover"
-                              />
+                              <img src={firstImg} alt={item.name} className="w-full h-full object-cover" />
                             ) : (
-                              <PhotoIcon className="w-full h-full p-3 text-gray-300" />
+                              <PhotoIcon className="w-full h-full p-2.5 text-slate-300" />
                             )}
                           </button>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <p className="font-medium text-gray-900 text-sm truncate">
-                                {item.name}
-                              </p>
-                              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                                ×{item.count}
-                              </span>
+                              <p className="font-semibold text-slate-900 text-sm truncate">{item.name}</p>
+                              <span className="text-[10px] bg-slate-100 text-slate-600 border border-slate-200 px-1.5 py-0.5 rounded">Qty: {item.count}</span>
                             </div>
                             {item.order && (
-                              <p className="text-xs text-gray-500 mt-0.5">
-                                Order #{item.order.id.slice(-6)} •{' '}
-                                {item.purity || item.order.purity}
-                              </p>
+                              <p className="text-[11px] text-slate-500 mt-0.5">Order #{item.order.id.slice(-6)} • {item.purity || item.order.purity}</p>
                             )}
-                            <div className="flex gap-3 text-xs mt-1">
-                              <span className="text-gray-500">
-                                Gross:{' '}
-                                <span className="font-medium text-gray-700">
-                                  {item.grossWeight.toFixed(2)}g
-                                </span>
-                              </span>
-                              <span className="text-gray-500">
-                                Net:{' '}
-                                <span className="font-medium text-yellow-700">
-                                  {item.netWeight.toFixed(2)}g
-                                </span>
-                              </span>
+                            <div className="flex gap-4 text-[11px] mt-1.5">
+                              <span className="text-slate-500">Gross: <span className="font-medium text-slate-700">{item.grossWeight.toFixed(2)}g</span></span>
+                              <span className="text-slate-500">Net: <span className="font-bold text-slate-900">{item.netWeight.toFixed(2)}g</span></span>
                             </div>
                           </div>
                         </label>
@@ -851,64 +769,52 @@ function NewMovementModal({
               </div>
 
               {selected.length > 0 && (
-                <div className="bg-gray-50 rounded-xl p-3 grid grid-cols-3 gap-3 text-center">
+                <div className="bg-slate-50 rounded-lg p-3 grid grid-cols-3 gap-3 text-center border border-slate-200">
                   <div>
-                    <p className="text-xs text-gray-500">Items</p>
-                    <p className="font-bold text-gray-900">{totalCount}</p>
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Items</p>
+                    <p className="font-bold text-slate-900">{totalCount}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Gross</p>
-                    <p className="font-bold text-gray-900">
-                      {totalGross.toFixed(2)}g
-                    </p>
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Gross</p>
+                    <p className="font-bold text-slate-900">{totalGross.toFixed(2)}g</p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-500">Net</p>
-                    <p className="font-bold text-yellow-700">
-                      {totalNet.toFixed(2)}g
-                    </p>
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Net</p>
+                    <p className="font-bold text-slate-900">{totalNet.toFixed(2)}g</p>
                   </div>
                 </div>
               )}
 
-              {/* People chain */}
-              <div className="border-t border-gray-100 pt-4 space-y-4">
-                <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                  <UserCircleIcon className="w-4 h-4 text-gray-500" /> Handover
-                  &amp; Carrier
+              <div className="border-t border-slate-200 pt-5 space-y-4">
+                <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                  <UserCircleIcon className="w-4 h-4 text-slate-500" /> Handover & Carrier Details
                 </p>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Handed over by <span className="text-red-500">*</span>
-                    </label>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Handed over by <span className="text-red-500">*</span></label>
                     <input
                       type="text"
                       value={handedOverByName}
                       onChange={(e) => setHandedOverByName(e.target.value)}
                       placeholder="Person releasing the gold"
-                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 focus:border-yellow-500 outline-none"
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-slate-900 outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Handover phone
-                    </label>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Handover phone</label>
                     <input
                       type="tel"
                       value={handedOverByPhone}
                       onChange={(e) => setHandedOverByPhone(e.target.value)}
                       placeholder="Optional"
-                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 focus:border-yellow-500 outline-none"
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-slate-900 outline-none"
                     />
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Carried by <span className="text-red-500">*</span>
-                  </label>
+                <div className="space-y-3">
+                  <label className="block text-xs font-medium text-slate-700">Carried by <span className="text-red-500">*</span></label>
 
                   <div className="flex flex-wrap gap-2">
                     {['AGENT', 'STAFF', 'COURIER', 'OTHER'].map((t) => (
@@ -916,10 +822,10 @@ function NewMovementModal({
                         key={t}
                         type="button"
                         onClick={() => setCarrierType(t)}
-                        className={`text-xs px-3 py-1.5 rounded-full font-medium transition ${
+                        className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors ${
                           carrierType === t
-                            ? 'bg-yellow-400 text-black'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                            : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
                         }`}
                       >
                         {t}
@@ -931,71 +837,61 @@ function NewMovementModal({
                     <select
                       value={carrierId}
                       onChange={(e) => handleCarrierAgentChange(e.target.value)}
-                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 focus:border-yellow-500 outline-none"
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-slate-900 outline-none"
                     >
-                      <option value="">Select an agent</option>
+                      <option value="">Select an agent...</option>
                       {agents.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name} ({a.phone})
-                        </option>
+                        <option key={a.id} value={a.id}>{a.name} ({a.phone})</option>
                       ))}
                     </select>
                   )}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <input
                       type="text"
                       value={carrierName}
                       onChange={(e) => setCarrierName(e.target.value)}
                       placeholder="Carrier name"
-                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 focus:border-yellow-500 outline-none"
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-slate-900 outline-none"
                     />
                     <input
                       type="tel"
                       value={carrierPhone}
                       onChange={(e) => setCarrierPhone(e.target.value)}
                       placeholder="Carrier phone"
-                      className="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 focus:border-yellow-500 outline-none"
+                      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-slate-900 outline-none"
                     />
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description (optional)
-                </label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Description (optional)</label>
                 <input
                   type="text"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="e.g. Regular transfer to HO"
-                  className="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 focus:border-yellow-500 outline-none"
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-slate-900 outline-none"
                 />
               </div>
             </div>
 
-            <div className="px-6 py-4 border-t border-gray-100 flex gap-3 flex-shrink-0">
+            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex gap-3 flex-shrink-0 rounded-b-xl">
               <button
                 onClick={onClose}
-                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 rounded-xl"
+                className="flex-1 bg-white border border-slate-300 text-slate-700 font-medium py-2.5 rounded-lg hover:bg-slate-100 transition-colors text-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSubmit}
-                disabled={
-                  submitting ||
-                  selected.length === 0 ||
-                  !toBranchId ||
-                  !handedOverByName.trim() ||
-                  !carrierName.trim()
-                }
-                className="flex-1 bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-bold py-3 rounded-xl shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+                disabled={submitting || selected.length === 0 || !toBranchId || !handedOverByName.trim() || !carrierName.trim()}
+                className="flex-[2] bg-slate-900 text-white font-medium py-2.5 rounded-lg shadow-sm hover:bg-slate-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2 text-sm"
               >
                 {submitting ? (
                   <>
-                    <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     Sending...
                   </>
                 ) : (
@@ -1008,5 +904,4 @@ function NewMovementModal({
       )}
     </AnimatePresence>
   );
-  
 }

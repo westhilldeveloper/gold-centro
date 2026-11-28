@@ -1,7 +1,7 @@
 // app/branch/reports/page.js
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
@@ -11,7 +11,6 @@ import {
   CurrencyRupeeIcon,
   CubeIcon,
   PlusCircleIcon,
-  BanknotesIcon,
   DocumentTextIcon,
   ArrowDownTrayIcon,
   PrinterIcon,
@@ -79,32 +78,21 @@ export default function BranchReports() {
       .finally(() => setLoading(false));
   }, [user, from, to]);
 
-  // ── Export Handlers ──
+  // ── Export Handlers (Unchanged) ──
   const exportCSV = () => {
     if (!data?.orders?.length) return toast.error('No data to export');
-    
     const headers = ['Order ID', 'Date', 'Customer Name', 'Phone', 'Staff', 'Weight (g)', 'Amount (₹)', 'Payment Mode', 'Estimate Doc', 'Final Doc'];
     const rows = data.orders.map(o => [
-      o.id,
-      new Date(o.createdAt).toLocaleDateString(),
-      `"${o.customer?.name || ''}"`,
-      o.customer?.phone || '',
-      o.staff?.name || '',
-      o.weight.toFixed(2),
-      (o.finalPrice || 0).toFixed(2),
-      o.paymentMode || '',
-      o.estimateAgreementUrl ? 'Yes' : 'No',
-      o.purchaseAgreementUrl ? 'Yes' : 'No',
+      o.id, new Date(o.createdAt).toLocaleDateString(), `"${o.customer?.name || ''}"`,
+      o.customer?.phone || '', o.staff?.name || '', o.weight.toFixed(2),
+      (o.finalPrice || 0).toFixed(2), o.paymentMode || '',
+      o.estimateAgreementUrl ? 'Yes' : 'No', o.purchaseAgreementUrl ? 'Yes' : 'No',
     ]);
-
     const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", encodeURI(csvContent));
     link.setAttribute("download", `Direct_Purchase_Report_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
   const handlePrint = () => window.print();
@@ -112,132 +100,195 @@ export default function BranchReports() {
   if (loading || !data) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-10 h-10 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto p-4 print:p-0">
+    <div className="max-w-7xl mx-auto space-y-6 pb-12 p-4 print:p-0 print:max-w-none print:space-y-4">
       <Toaster position="top-center" />
 
-      {/* Header (Hidden on Print) */}
-      <div className="flex flex-wrap items-center justify-between gap-4 print:hidden">
+      {/* 1. Header Area */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 flex items-center gap-2">
-            <DocumentChartBarIcon className="w-7 h-7 md:w-8 md:h-8 text-yellow-600" /> Direct Purchase Report
+          <h1 className="text-2xl font-semibold text-slate-900 tracking-tight flex items-center gap-2">
+            <DocumentChartBarIcon className="w-7 h-7 text-slate-400" /> Direct Purchase Report
           </h1>
-          <p className="text-gray-500 mt-1">Purchases made directly by this branch</p>
+          <p className="text-sm text-slate-500 mt-1">Purchases made directly by {user.branch?.name || 'this branch'}</p>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <Link href="/branch/direct-purchase/pending" className="flex items-center gap-2 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 font-bold px-4 py-2.5 rounded-xl text-sm">
-            <ExclamationTriangleIcon className="w-4 h-4" /> Pending ({data.stats.totalPending})
-          </Link>
-          <Link href="/branch/direct-purchase/cancelled" className="flex items-center gap-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-bold px-4 py-2.5 rounded-xl text-sm">
-            <XCircleIcon className="w-4 h-4" /> Cancelled ({data.stats.cancelledCount})
-          </Link>
-          <Link href="/branch/direct-purchase/new" className="flex items-center gap-2 bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-bold px-5 py-2.5 rounded-xl shadow-md hover:shadow-lg transition text-sm">
-            <PlusCircleIcon className="w-5 h-5" /> New Purchase
-          </Link>
-        </div>
+        <Link 
+          href="/branch/direct-purchase/new" 
+          className="inline-flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-medium px-5 py-2.5 rounded-lg text-sm shadow-sm transition-colors"
+        >
+          <PlusCircleIcon className="w-4 h-4" /> New Purchase
+        </Link>
       </div>
 
-      {/* Print-only Header */}
-      <div className="hidden print:block text-center mb-6">
-        <h1 className="text-2xl font-bold">Gold Centro - Direct Purchase Report</h1>
-        <p className="text-sm text-gray-600">Branch: {user.branch?.name} | Date Range: {from || 'Start'} to {to || 'Today'}</p>
-      </div>
-
-      {/* Filter & Export Bar */}
-      <div className="bg-white p-4 rounded-2xl shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4 print:hidden">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold text-gray-700 mr-2">Date Range:</span>
-          {DATE_PRESETS.map((p) => (
-            <button key={p.value} onClick={() => setPreset(p.value)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${preset === p.value ? 'bg-yellow-100 text-yellow-800 border border-yellow-300' : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'}`}>
-              {p.label}
-            </button>
-          ))}
-        </div>
-
-        {preset === 'custom' && (
-          <div className="flex items-center gap-2">
-            <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="border-2 border-gray-200 rounded-lg px-2 py-1.5 text-sm outline-none" />
-            <span className="text-gray-400">to</span>
-            <input type="date" value={to} onChange={e => setTo(e.target.value)} className="border-2 border-gray-200 rounded-lg px-2 py-1.5 text-sm outline-none" />
+      {/* 2. Alerts Strip */}
+      <div className="flex flex-wrap gap-3 print:hidden">
+        <Link href="/branch/direct-purchase/pending" className="flex-1 sm:flex-none flex items-center gap-3 bg-white border border-slate-200 hover:border-amber-300 hover:bg-amber-50 px-4 py-3 rounded-xl transition-colors group">
+          <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
+            <ExclamationTriangleIcon className="w-4 h-4" />
           </div>
-        )}
+          <div>
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide group-hover:text-amber-700">Pending Agreements</p>
+            <p className="text-lg font-bold text-slate-900 leading-tight">{data.stats.totalPending}</p>
+          </div>
+        </Link>
+        
+        <Link href="/branch/direct-purchase/cancelled" className="flex-1 sm:flex-none flex items-center gap-3 bg-white border border-slate-200 hover:border-red-300 hover:bg-red-50 px-4 py-3 rounded-xl transition-colors group">
+          <div className="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center">
+            <XCircleIcon className="w-4 h-4" />
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide group-hover:text-red-700">Cancelled Orders</p>
+            <p className="text-lg font-bold text-slate-900 leading-tight">{data.stats.cancelledCount}</p>
+          </div>
+        </Link>
+      </div>
 
-        <div className="flex gap-2 ml-auto">
-          <button onClick={exportCSV} className="flex items-center gap-1 bg-green-50 hover:bg-green-100 text-green-700 font-bold px-3 py-1.5 rounded-lg text-xs border border-green-200">
-            <ArrowDownTrayIcon className="w-4 h-4" /> Excel
-          </button>
-          <button onClick={handlePrint} className="flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold px-3 py-1.5 rounded-lg text-xs border border-blue-200">
-            <PrinterIcon className="w-4 h-4" /> PDF / Print
-          </button>
+      {/* 3. Main Control Panel (Filters & Exports) */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden print:hidden">
+        <div className="p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          
+          {/* Left: Date Filters */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Time Period</span>
+            
+            {/* Segmented Control for Presets */}
+            <div className="flex bg-slate-100 p-1 rounded-lg overflow-x-auto hide-scrollbar">
+              {DATE_PRESETS.map((p) => (
+                <button 
+                  key={p.value} 
+                  onClick={() => setPreset(p.value)} 
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${
+                    preset === p.value 
+                      ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50' 
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200/50'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            
+            {/* Custom Date Inputs */}
+            {preset === 'custom' && (
+              <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200">
+                <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="bg-transparent border-none text-sm px-2 py-1 outline-none text-slate-700" />
+                <span className="text-slate-400 text-xs">to</span>
+                <input type="date" value={to} onChange={e => setTo(e.target.value)} className="bg-transparent border-none text-sm px-2 py-1 outline-none text-slate-700" />
+              </div>
+            )}
+          </div>
+
+          {/* Right: Actions */}
+          <div className="flex items-center gap-2 border-t lg:border-t-0 lg:border-l border-slate-100 pt-4 lg:pt-0 lg:pl-4">
+            <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors">
+              <ArrowDownTrayIcon className="w-4 h-4" /> Export
+            </button>
+            <button onClick={handlePrint} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors">
+              <PrinterIcon className="w-4 h-4" /> Print
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Stats */}
+      {/* 4. Financial Stats (Tabular focus) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 print:grid-cols-3 print:gap-2">
-        <div className="bg-gradient-to-r from-yellow-400 to-amber-500 rounded-2xl p-5 text-black print:bg-white print:border print:border-gray-300">
-          <p className="text-sm opacity-80 font-medium">Completed Purchases</p>
-          <p className="text-3xl font-bold mt-1">{data.stats.count}</p>
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 print:border-gray-300">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Completed Orders</p>
+          <p className="text-3xl font-bold text-slate-900 mt-2 tabular-nums print:text-black">{data.stats.count}</p>
         </div>
-        <div className="bg-white rounded-2xl shadow-md p-5 print:shadow-none print:border print:border-gray-300">
-          <p className="text-sm text-gray-500 flex items-center gap-1">
-            <CubeIcon className="w-4 h-4 text-purple-600" /> Total Weight
+        
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 print:border-gray-300">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+            <CubeIcon className="w-4 h-4 text-slate-400" /> Total Weight
           </p>
-          <p className="text-3xl font-bold text-gray-900 mt-1">{data.stats.totalWeight.toFixed(2)}g</p>
+          <p className="text-3xl font-bold text-slate-900 mt-2 tabular-nums print:text-black">
+            {data.stats.totalWeight.toFixed(2)}<span className="text-lg font-medium text-slate-400 ml-1">g</span>
+          </p>
         </div>
-        <div className="bg-white rounded-2xl shadow-md p-5 print:shadow-none print:border print:border-gray-300">
-          <p className="text-sm text-gray-500 flex items-center gap-1">
-            <CurrencyRupeeIcon className="w-4 h-4 text-green-600" /> Total Paid
+        
+        <div className="bg-white rounded-xl border border-slate-200 border-l-4 border-l-emerald-500 shadow-sm p-5 print:border-gray-300">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+            <CurrencyRupeeIcon className="w-4 h-4 text-emerald-500" /> Total Paid
           </p>
-          <p className="text-3xl font-bold text-gray-900 mt-1">₹{data.stats.totalAmount.toFixed(2)}</p>
+          <p className="text-3xl font-bold text-slate-900 mt-2 tabular-nums print:text-black">
+            ₹{data.stats.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
         </div>
       </div>
 
-      {/* List */}
-      <div className="bg-white rounded-2xl shadow-md overflow-hidden print:shadow-none print:border print:border-gray-300">
-        <div className="px-5 md:px-6 py-4 border-b border-gray-100 bg-gray-50">
-          <h2 className="font-semibold text-lg">Completed Purchase History</h2>
+      {/* 5. Data Table (Grid Structure) */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden print:shadow-none print:border-gray-300">
+        
+        {/* Table Header (Desktop only) */}
+        <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 bg-slate-50 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wide print:hidden">
+          <div className="col-span-4">Customer & Order</div>
+          <div className="col-span-3">Date & Staff</div>
+          <div className="col-span-2 text-right">Weight</div>
+          <div className="col-span-2 text-right">Amount</div>
+          <div className="col-span-1 text-right">Docs</div>
         </div>
+
         {data.orders.length === 0 ? (
-          <p className="p-12 text-center text-gray-500">No purchases found for this date range.</p>
+          <p className="p-12 text-center text-slate-500 font-medium">No purchases found for this period.</p>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-slate-100">
             {data.orders.map((o) => (
-              <motion.div key={o.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="px-5 md:px-6 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 hover:bg-gray-50 transition print:py-2 print:hover:bg-transparent">
-                <div className="min-w-0">
-                  <p className="font-mono text-xs text-gray-400">#{o.id.slice(-8).toUpperCase()}</p>
-                  <p className="font-medium text-gray-900 mt-0.5 truncate">{o.customer?.name}</p>
-                  <p className="text-xs text-gray-500 truncate">
-                    {o.customer?.phone} • Staff: {o.staff?.name || '—'}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {new Date(o.createdAt).toLocaleString()} • {o.paymentMode}
+              <motion.div 
+                key={o.id} 
+                initial={{ opacity: 0 }} 
+                animate={{ opacity: 1 }} 
+                className="grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-4 px-6 py-4 items-center hover:bg-slate-50/80 transition-colors print:py-2 print:hover:bg-transparent"
+              >
+                {/* Column 1: Customer & ID */}
+                <div className="col-span-4 min-w-0">
+                  <p className="font-semibold text-slate-900 text-sm truncate">{o.customer?.name}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="font-mono text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">#{o.id.slice(-6).toUpperCase()}</span>
+                    <p className="text-xs text-slate-500 truncate">{o.customer?.phone}</p>
+                  </div>
+                </div>
+
+                {/* Column 2: Date & Staff */}
+                <div className="col-span-3 min-w-0">
+                  <p className="text-xs font-medium text-slate-700 truncate">Staff: {o.staff?.name || '—'}</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {new Date(o.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
-                
-                <div className="flex flex-col sm:items-end gap-2 flex-shrink-0">
-                  <div className="text-left sm:text-right">
-                    <p className="font-bold text-gray-900">{o.weight.toFixed(2)}g</p>
-                    <p className="font-bold text-green-600">₹{o.finalPrice?.toFixed(2)}</p>
-                  </div>
-                  
-                  {/* Documents - Hidden on Print, replaced with text if needed */}
-                  <div className="flex gap-2 print:hidden">
-                    {o.estimateAgreementUrl && (
-                      <a href={o.estimateAgreementUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 px-2 py-1 rounded inline-flex items-center gap-1 font-medium">
-                        <DocumentTextIcon className="w-3 h-3" /> Est. Doc
-                      </a>
-                    )}
-                    {o.purchaseAgreementUrl && (
-                      <a href={o.purchaseAgreementUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-800 px-2 py-1 rounded inline-flex items-center gap-1 font-medium">
-                        <DocumentTextIcon className="w-3 h-3" /> Final Doc
-                      </a>
-                    )}
-                  </div>
+
+                {/* Column 3: Weight */}
+                <div className="col-span-2 md:text-right mt-2 md:mt-0 flex justify-between md:block border-t border-slate-100 md:border-none pt-2 md:pt-0">
+                  <span className="md:hidden text-xs text-slate-500">Weight</span>
+                  <p className="font-bold text-slate-900 text-sm tabular-nums">{o.weight.toFixed(3)}<span className="text-xs text-slate-500 font-normal ml-0.5">g</span></p>
+                </div>
+
+                {/* Column 4: Amount */}
+                <div className="col-span-2 md:text-right flex justify-between md:block">
+                  <span className="md:hidden text-xs text-slate-500">Amount</span>
+                  <p className="font-bold text-slate-900 text-sm tabular-nums">₹{o.finalPrice?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-[10px] text-slate-500 md:mt-0.5 uppercase tracking-wide">{o.paymentMode || 'CASH'}</p>
+                </div>
+
+                {/* Column 5: Documents */}
+                <div className="col-span-1 flex md:justify-end gap-1.5 mt-3 md:mt-0 pt-3 md:pt-0 border-t border-slate-100 md:border-none print:hidden">
+                  {o.estimateAgreementUrl && (
+                    <a href={o.estimateAgreementUrl} target="_blank" rel="noreferrer" title="Estimate Document" className="p-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md transition-colors">
+                      <DocumentTextIcon className="w-4 h-4" />
+                    </a>
+                  )}
+                  {o.purchaseAgreementUrl && (
+                    <a href={o.purchaseAgreementUrl} target="_blank" rel="noreferrer" title="Final Purchase Document" className="p-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-md transition-colors">
+                      <DocumentTextIcon className="w-4 h-4" />
+                    </a>
+                  )}
+                  {!o.estimateAgreementUrl && !o.purchaseAgreementUrl && (
+                    <span className="text-[10px] text-slate-300 italic">No Docs</span>
+                  )}
                 </div>
               </motion.div>
             ))}
@@ -245,9 +296,9 @@ export default function BranchReports() {
         )}
       </div>
 
-      {/* Print-specific footer */}
+      {/* Print Styles */}
       <div className="hidden print:block text-center text-xs text-gray-500 mt-8">
-        Generated on {new Date().toLocaleString()} by {user.name} ({user.branch?.code})
+        Generated on {new Date().toLocaleString('en-GB')} by {user.name} ({user.branch?.code})
       </div>
     </div>
   );

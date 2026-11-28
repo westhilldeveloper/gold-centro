@@ -5,14 +5,25 @@ import { NextResponse } from 'next/server';
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
-    const phone = searchParams.get('phone');
+    const rawPhone = searchParams.get('phone');
 
-    if (!phone || phone.length < 10) {
+    if (!rawPhone || rawPhone.length < 10) {
       return NextResponse.json({ success: true, customer: null });
     }
 
-    const customer = await prisma.user.findUnique({
-      where: { phone },
+    // Clean the input (just in case)
+    const cleanPhone = rawPhone.replace(/\D/g, '');
+
+    // Look for ANY variation of the phone number in the DB
+    const customer = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { phone: cleanPhone },              // 8891332500
+          { phone: `+91${cleanPhone}` },      // +918891332500
+          { phone: `91${cleanPhone}` }        // 918891332500
+        ],
+        role: 'CUSTOMER'
+      },
       select: {
         id: true,
         name: true,
@@ -27,11 +38,11 @@ export async function GET(req) {
       },
     });
 
-    // Only return if the user is actually a CUSTOMER
-    if (customer && customer.role === 'CUSTOMER') {
+    if (customer) {
       return NextResponse.json({ success: true, customer });
     }
 
+    // If not found, return null
     return NextResponse.json({ success: true, customer: null });
   } catch (error) {
     console.error('Customer lookup error:', error);

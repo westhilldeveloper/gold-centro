@@ -1,3 +1,4 @@
+// app/branch/fund-requests/page.js
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -67,29 +68,45 @@ export default function BranchFundRequests() {
   };
 
   const statusConfig = {
-    PENDING: { color: 'bg-yellow-100 text-yellow-700', icon: ClockIcon, label: 'Pending' },
-    APPROVED: { color: 'bg-green-100 text-green-700', icon: CheckCircleIcon, label: 'Approved' },
-    REJECTED: { color: 'bg-red-100 text-red-700', icon: XCircleIcon, label: 'Rejected' },
+    PENDING: { 
+      style: 'bg-amber-50 text-amber-700 border-amber-200', 
+      icon: ClockIcon, 
+      label: 'Pending' 
+    },
+    APPROVED: { 
+      style: 'bg-emerald-50 text-emerald-700 border-emerald-200', 
+      icon: CheckCircleIcon, 
+      label: 'Approved' 
+    },
+    REJECTED: { 
+      style: 'bg-red-50 text-red-700 border-red-200', 
+      icon: XCircleIcon, 
+      label: 'Rejected' 
+    },
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center h-64"><div className="w-10 h-10 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin" /></div>;
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin" />
+      </div>
+    );
   }
 
   const pending = requests.filter((r) => r.status === 'PENDING');
   const totalPending = pending.reduce((s, r) => s + r.amount, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-7xl mx-auto space-y-8 pb-12">
       <Toaster position="top-center" />
 
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-            <BanknotesIcon className="w-8 h-8 text-yellow-600" /> Fund Requests
+          <h1 className="text-2xl font-semibold text-slate-900 tracking-tight flex items-center gap-2">
+            <BanknotesIcon className="w-7 h-7 text-slate-400" /> Fund Requests
           </h1>
-          <p className="text-gray-500 mt-1">
+          <p className="text-sm text-slate-500 mt-1">
             Raise requests to Head Office for branch funding
           </p>
         </div>
@@ -97,57 +114,79 @@ export default function BranchFundRequests() {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setModalOpen(true)}
-          className="flex items-center gap-2 bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-bold px-5 py-3 rounded-xl shadow-md hover:shadow-lg"
+          className="flex items-center gap-2 bg-slate-900 text-white text-sm font-medium px-5 py-2.5 rounded-lg shadow-sm hover:bg-slate-800 transition-colors"
         >
-          <PlusIcon className="w-5 h-5" /> New Request
+          <PlusIcon className="w-4 h-4" /> New Request
         </motion.button>
       </div>
 
-      {/* Summary */}
+      {/* Summary Card */}
       {pending.length > 0 && (
-        <div className="bg-gradient-to-r from-yellow-400 to-amber-500 rounded-2xl p-5 text-black">
-          <p className="text-sm font-medium opacity-80">Pending Requests</p>
-          <p className="text-3xl font-bold mt-1">
-            ₹{totalPending.toFixed(2)}
-            <span className="text-sm font-medium opacity-80 ml-2">({pending.length})</span>
+        <div className="bg-white rounded-xl border border-slate-200 border-l-4 border-l-amber-500 shadow-sm p-6">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            Pending Requests
           </p>
+          <div className="flex items-baseline gap-2 mt-2">
+            <p className="text-3xl font-bold text-slate-900">
+              ₹{totalPending.toFixed(2)}
+            </p>
+            <span className="text-sm font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+              {pending.length} request{pending.length !== 1 ? 's' : ''}
+            </span>
+          </div>
         </div>
       )}
 
       {/* Requests List */}
       {requests.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-md p-12 text-center text-gray-500">
-          <BanknotesIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p>No fund requests yet.</p>
-          <p className="text-sm mt-2">Click "New Request" to raise one.</p>
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-12 text-center">
+          <BanknotesIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+          <p className="text-slate-500 font-medium">No fund requests yet.</p>
+          <p className="text-sm text-slate-400 mt-1">Click "New Request" to raise one.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl shadow-md divide-y divide-gray-100">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-100">
           {requests.map((r) => {
             const cfg = statusConfig[r.status];
             const Icon = cfg.icon;
             return (
-              <motion.div key={r.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="px-6 py-4 hover:bg-gray-50">
+              <motion.div 
+                key={r.id} 
+                initial={{ opacity: 0 }} 
+                animate={{ opacity: 1 }} 
+                className="px-6 py-5 hover:bg-slate-50/80 transition-colors"
+              >
                 <div className="flex flex-wrap justify-between items-start gap-3">
                   <div className="flex-1 min-w-[240px]">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-xs px-2.5 py-1 rounded-full inline-flex items-center gap-1 font-medium ${cfg.color}`}>
-                        <Icon className="w-3 h-3" /> {cfg.label}
+                    
+                    {/* Status & ID */}
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className={`text-[11px] px-2.5 py-1 rounded-md border font-semibold tracking-wide inline-flex items-center gap-1.5 ${cfg.style}`}>
+                        <Icon className="w-3.5 h-3.5" /> {cfg.label.toUpperCase()}
                       </span>
-                      <span className="font-mono text-xs text-gray-400">#{r.id.slice(-8)}</span>
+                      <span className="font-mono text-xs text-slate-400">#{r.id.slice(-8).toUpperCase()}</span>
                     </div>
-                    <p className="text-lg font-bold text-gray-900">₹{r.amount.toFixed(2)}</p>
-                    <p className="text-sm text-gray-700 mt-1">{r.purpose}</p>
+
+                    {/* Amount & Purpose */}
+                    <p className="text-xl font-bold text-slate-900">₹{r.amount.toFixed(2)}</p>
+                    <p className="text-sm font-medium text-slate-700 mt-1">{r.purpose}</p>
+                    
+                    {/* Description */}
                     {r.description && (
-                      <p className="text-xs text-gray-500 mt-1">{r.description}</p>
+                      <p className="text-sm text-slate-500 mt-1">{r.description}</p>
                     )}
-                    <p className="text-xs text-gray-400 mt-1">
-                      Requested {new Date(r.createdAt).toLocaleString()}
+                    
+                    {/* Dates & Notes */}
+                    <p className="text-[11px] uppercase tracking-wide text-slate-400 mt-2">
+                      Requested {new Date(r.createdAt).toLocaleString('en-GB')}
                     </p>
+                    
                     {r.reviewNote && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        💬 Admin note: {r.reviewNote}
-                      </p>
+                      <div className="mt-2 bg-slate-50 border border-slate-200 rounded-lg p-2.5 inline-block">
+                        <p className="text-xs text-slate-700">
+                          <span className="font-semibold text-slate-900">Admin Note:</span> {r.reviewNote}
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -164,27 +203,27 @@ export default function BranchFundRequests() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
             onClick={() => setModalOpen(false)}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
+              initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: 'spring', damping: 20 }}
-              className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6"
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25 }}
+              className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">New Fund Request</h2>
-                <button onClick={() => setModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                  <XMarkIcon className="w-6 h-6" />
+              <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <h2 className="text-lg font-bold text-slate-900">New Fund Request</h2>
+                <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-700 bg-white hover:bg-slate-100 p-2 rounded-lg border border-slate-200 transition-colors">
+                  <XMarkIcon className="w-5 h-5" />
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="p-6 space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-medium text-slate-700 mb-1.5 uppercase tracking-wide">
                     Amount (₹) <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -194,19 +233,19 @@ export default function BranchFundRequests() {
                     onChange={(e) => setForm({ ...form, amount: e.target.value })}
                     placeholder="e.g. 50000"
                     required
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none"
+                    className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-slate-900 outline-none transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-medium text-slate-700 mb-1.5 uppercase tracking-wide">
                     Purpose <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={form.purpose}
                     onChange={(e) => setForm({ ...form, purpose: e.target.value })}
                     required
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none"
+                    className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-slate-900 outline-none transition-all bg-white"
                   >
                     <option value="">Select purpose</option>
                     <option value="Gold purchase">Gold purchase</option>
@@ -219,7 +258,7 @@ export default function BranchFundRequests() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-medium text-slate-700 mb-1.5 uppercase tracking-wide">
                     Description (optional)
                   </label>
                   <textarea
@@ -227,7 +266,7 @@ export default function BranchFundRequests() {
                     onChange={(e) => setForm({ ...form, description: e.target.value })}
                     placeholder="Add more context..."
                     rows={3}
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none resize-none"
+                    className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-slate-900 outline-none transition-all resize-none"
                   />
                 </div>
 
@@ -235,14 +274,14 @@ export default function BranchFundRequests() {
                   <button
                     type="button"
                     onClick={() => setModalOpen(false)}
-                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-3 rounded-xl"
+                    className="flex-1 bg-white border border-slate-300 text-slate-700 font-medium py-2.5 rounded-lg hover:bg-slate-50 transition-colors text-sm"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="flex-1 bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-bold py-3 rounded-xl shadow-md disabled:opacity-50"
+                    className="flex-[2] bg-slate-900 text-white font-medium py-2.5 rounded-lg shadow-sm hover:bg-slate-800 disabled:opacity-50 transition-colors text-sm flex items-center justify-center"
                   >
                     {submitting ? 'Submitting...' : 'Submit Request'}
                   </button>
